@@ -17,8 +17,8 @@ const double B = A/std::pow(Ca-Cm,2);
 const double g = 2.0/std::pow(Cb-Ca,2);
 const double delta = 1.0;
 const double epsilon = 3.0;
-const double Dalpha = g/std::pow(delta,2);
-const double Dbeta = g/std::pow(delta,2);
+const double Da = g/std::pow(delta,2);
+const double Db = g/std::pow(delta,2);
 const double kappa = 2.0;
 const double D = 1.0;
 const double L = 1.0;
@@ -29,14 +29,15 @@ const double CFL = dt*D*kappa/std::pow(deltaX,4);
 
 double energydensity(const MMSP::vector<double>& value)
 {
-	double f1 = -0.5*A*pow(value[0]-Cm,2) + 0.25*B*pow(value[0]-Cm,4) + 0.25*pow(value[0]-Ca,4) + 0.25*pow(value[0]-Cb,4);
+	double C = value[0];
+	double f1 = -0.5*A*pow(C-Cm,2) + 0.25*B*pow(C-Cm,4) + 0.25*Da*pow(C-Ca,4) + 0.25*Db*pow(C-Cb,4);
 	double f2 = 0.0;
 	for (int i=1; i<length(value); i++)
-		f2+=-0.5*g*pow(value[0]-Ca,2)*pow(value[i],2);
+		f2+=-0.5*g*pow(C-Ca,2)*pow(value[i],2)+0.25*delta*pow(value[i],4);
 	double f3 = 0.0;
 	for (int i=1; i<length(value); i++)
 		for (int j=i+1; j<length(value); j++)
-			f3 += 0.5*epsilon*pow(value[i],2)*pow(value[j],2);
+			f3 += epsilon*pow(value[i],2)*pow(value[j],2); // Half vanishes to enable double-counting
 	return f1 + f2 + f3;
 }
 
@@ -57,7 +58,7 @@ void generate(int dim, const char* filename)
   rank = MPI::COMM_WORLD.Get_rank();
   #endif
 
-	const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
+	const double q[2] = {std::sqrt(2.0), std::sqrt(3.0)};
 	double qi[11][2];
 	qi[0][0] = 0.0;
 	qi[0][1] = 0.0;
@@ -126,7 +127,7 @@ void update(MMSP::grid<2,MMSP::vector<double> >& grid, int steps)
 			double C = grid(x)[0];
 			double lap = onelap(grid, x, 0);
 
-			wspace(x) = -A*(C-Cm) + B*std::pow(C-Cm,3) + Dalpha*std::pow(C-Ca,3) + Dbeta*std::pow(C-Cb,3) - g*(C-Ca)*sum - kappa*lap;
+			wspace(x) = -A*(C-Cm) + B*std::pow(C-Cm,3) + Da*std::pow(C-Ca,3) + Db*std::pow(C-Cb,3) - g*(C-Ca)*sum - kappa*lap;
 		}
 		ghostswap(wspace);
 
