@@ -42,6 +42,9 @@ double energydensity(const MMSP::vector<double>& value)
 
 namespace MMSP{
 
+// Define a Laplacian function for a specific field
+double onelap(const grid<2, vector<double> >& GRID, const vector<int>& x, const int field); // func prototype
+
 void generate(int dim, const char* filename)
 {
 	if (dim!=2) {
@@ -114,53 +117,46 @@ void update(MMSP::grid<2,MMSP::vector<double> >& grid, int steps)
 	}
 
 	for (int step=0; step<steps; step++) {
-		for (int x=x0(grid); x<x1(grid); x++)
-			for (int y=y0(grid); y<y1(grid); y++) {
-				double sum = 0.0;
-				for (int i=1; i<fields(grid); i++)
-					sum += std::pow(grid[x][y][i],2);
+		for (int n=0; n<nodes(grid); n++) {
+			MMSP::vector<int> x=position(grid,n);
+			double sum = 0.0;
+			for (int i=1; i<fields(grid); i++)
+				sum += std::pow(grid(x)[i],2);
 
-				double C = grid[x][y][0];
-				double lap =
-					  (grid[x+1][y][0]-2.0*grid[x][y][0]+grid[x-1][y][0])/(dx(grid)*dx(grid))
-					 +(grid[x][y+1][0]-2.0*grid[x][y][0]+grid[x][y-1][0])/(dy(grid)*dy(grid));
+			double C = grid(x)[0];
+			double lap = onelap(grid, x, 0);
 
-				wspace[x][y] = -A*(C-Cm) + B*std::pow(C-Cm,3) + Dalpha*std::pow(C-Ca,3) + Dbeta*std::pow(C-Cb,3) - g*(C-Ca)*sum - kappa*lap;
-			}
+			wspace(x) = -A*(C-Cm) + B*std::pow(C-Cm,3) + Dalpha*std::pow(C-Ca,3) + Dbeta*std::pow(C-Cb,3) - g*(C-Ca)*sum - kappa*lap;
+		}
 		ghostswap(wspace);
 
 		double energy = 0.0;
 		int err=0;
-		for (int x=x0(grid); x<x1(grid); x++)
-			for (int y=y0(grid); y<y1(grid); y++) {
-				if (1) {
-					double lap =
-					  (wspace[x+1][y]-2.0*wspace[x][y]+wspace[x-1][y])/(dx(grid)*dx(grid))
-					 +(wspace[x][y+1]-2.0*wspace[x][y]+wspace[x][y-1])/(dy(grid)*dy(grid));
-
-					update[x][y][0] = grid[x][y][0]+dt*D*lap;
-				}
-
-				double sum = 0.0;
-				for (int i=1; i<fields(grid); i++)
-					sum += std::pow(grid[x][y][i],2);
-
-				for (int i=1; i<fields(grid); i++) {
-					double C = grid[x][y][0];
-					double phase = grid[x][y][i];
-					double lap =
-						  (grid[x+1][y][i]-2.0*grid[x][y][i]+grid[x-1][y][i])/(dx(grid)*dx(grid))
-						 +(grid[x][y+1][i]-2.0*grid[x][y][i]+grid[x][y-1][i])/(dy(grid)*dy(grid));
-
-					update[x][y][i] = grid[x][y][i] + dt*L*(g*std::pow(C-Ca,2)*phase - delta*std::pow(phase,3)
-					                                      - epsilon*phase*(sum-std::pow(phase,2)) + kappa*lap);
-					double de = energydensity(update[x][y]);
-					if (std::isfinite(de))
-						energy += energydensity(update[x][y]);
-					else
-						err++;
-				}
+		for (int n=0; n<nodes(grid); n++) {
+			MMSP::vector<int> x=position(grid,n);
+			if (1) {
+				double lap = laplacian(wspace, x);
+				update(x)[0] = grid(x)[0]+dt*D*lap;
 			}
+
+			double C = grid(x)[0];
+			double sum = 0.0;
+			for (int i=1; i<fields(grid); i++)
+				sum += std::pow(grid(x)[i],2);
+
+			for (int i=1; i<fields(grid); i++) {
+				double phase = grid(x)[i];
+				double lap = onelap(grid, x, i);
+
+				update(x)[i] = grid(x)[i] + dt*L*(g*std::pow(C-Ca,2)*phase - delta*std::pow(phase,3)
+				                                      - epsilon*phase*(sum-std::pow(phase,2)) + kappa*lap);
+				double de = energydensity(update(x));
+				if (std::isfinite(de))
+					energy += energydensity(update(x));
+				else
+					err++;
+			}
+		}
 		#ifdef MPI_VERSION
 		double myEnergy=energy;
 		double myErr=err;
@@ -175,6 +171,27 @@ void update(MMSP::grid<2,MMSP::vector<double> >& grid, int steps)
 		ghostswap(grid);
 	}
 }
+
+double onelap(const grid<2, vector<double> >& GRID, const vector<int>& x, const int field)
+{
+  double laplacian(0.0);
+  vector<int> s = x;
+
+  const double& y = GRID(x)[field];
+
+  for (int i=0; i<2; i++) {
+    s[i] += 1;
+    const double& yh = GRID(s)[field];
+    s[i] -= 2;
+    const double& yl = GRID(s)[field];
+    s[i] += 1;
+
+    double weight = 1.0 / (dx(GRID, i) * dx(GRID, i));
+    laplacian += weight * (yh - 2.0 * y + yl);
+  }
+  return laplacian;
+}
+
 
 } // namespace MMSP
 
