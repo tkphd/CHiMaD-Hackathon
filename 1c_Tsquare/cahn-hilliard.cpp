@@ -35,14 +35,11 @@ bool isOutside(const MMSP::vector<int>& x)
 
 bool isBorderline(const MMSP::vector<int>& x)
 {
-	if ((x[1]==99) && (x[0]<40))
+	if ((x[1]==99) && (x[0]>40) && (x[0]<60))
 		return true;
-	else if ((x[1]==99) && (x[0]>59))
+	else if ((x[1]<99) && ((x[0]==40) || (x[0]==59)))
 		return true;
-	else if ((x[1]<99) && (x[0]==40))
-		return true;
-	else if ((x[1]<99) && (x[0]==60))
-		return true;
+
 	return false;
 }
 
@@ -62,10 +59,12 @@ T zfLaplacian(const grid<dim, T>& GRID, const vector<int>& x)
     s[i] += 1;
 
     double weight = 1.0 / (dx(GRID, i) * dx(GRID, i));
-    if (x[1]==99 && x[0]==40) // low side
-    	laplacian += weight * (yh - y);
-    else if (x[1]==99 && x[0]==60) // high side
-    	laplacian += weight * (-y + yl);
+    if (i==0 && x[1]<99 && x[0]==40) // low side vacant
+    		laplacian += weight * (yh - y);
+    else if (i==0 && x[1]<=99 && x[0]==59) // high side vacant
+    		laplacian += weight * (-y + yl);
+    else if (i==1 && x[1]==99 && (x[0]<=40 || x[0]>=59))
+    		laplacian += weight * (yh - y);
     else
     	laplacian += weight * (yh - 2.0 * y + yl);
   }
@@ -85,7 +84,7 @@ void generate(int dim, const char* filename)
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
 
-	const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
+	const double q[2] = {std::sqrt(2.0), std::sqrt(3.0)};
 
 	if (dim==2) {
 		MMSP::grid<2,double> grid(0,0,100,0,120);

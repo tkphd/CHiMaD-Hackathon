@@ -130,7 +130,6 @@ int main(int argc, char* argv[])
 		 		for (int n=0; n<nodes(grid); ++n)
 					buffer[n] = (grid(n)>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(grid(n)-min)/(max-min);
 			} else if (double_type) {
-				std::cout<<type<<std::endl;
 	  		MMSP::grid<2,double> grid(argv[1]);
 	  		assert(theSize==nodes(grid));
 			  float max=std::numeric_limits<double>::min();
@@ -170,7 +169,6 @@ int main(int argc, char* argv[])
 		 		for (int n=0; n<nodes(grid); ++n)
 					buffer[n] = 255*(grid(n)[field]-min)/(max-min);
 			} else if (double_type) {
-			  std::cout<<type<<std::endl;
 	  		MMSP::grid<2,MMSP::vector<double> > grid(argv[1]);
 	  		assert(theSize==nodes(grid));
 			  float max=std::numeric_limits<double>::min();
