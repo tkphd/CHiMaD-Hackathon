@@ -84,7 +84,7 @@ void generate(int dim, const char* filename)
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
 
-	const double q[2] = {std::sqrt(2.0), std::sqrt(3.0)};
+	const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
 
 	if (dim==2) {
 		MMSP::grid<2,double> grid(0,0,100,0,120);
