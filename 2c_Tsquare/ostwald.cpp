@@ -127,7 +127,7 @@ void generate(int dim, const char* filename)
   rank = MPI::COMM_WORLD.Get_rank();
   #endif
 
-	const double q[2] = {std::sqrt(2.0), std::sqrt(3.0)};
+	const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
 	double qi[11][2];
 	qi[0][0] = 0.0;
 	qi[0][1] = 0.0;
@@ -136,7 +136,7 @@ void generate(int dim, const char* filename)
 		qi[i][1] = 0.01*std::sqrt(149+i);
 	}
 	if (dim==2) {
-		MMSP::grid<2,MMSP::vector<double> > grid(11,0,200,0,200);
+		MMSP::grid<2,MMSP::vector<double> > grid(11,0,100,0,120);
 
     for (int d=0; d<dim; d++) {
       dx(grid,d) = deltaX;
@@ -148,9 +148,15 @@ void generate(int dim, const char* filename)
 
     for (int i=0; i<nodes(grid); i++) {
       MMSP::vector<int> x = position(grid,i);
-      grid(x)[0] = 0.5 + 0.01 * std::cos(x[0]*dx(grid,0)*q[0] + x[1]*dx(grid,1)*q[1]); // conc
-			for (int i=1; i<fields(grid); i++)
-	      grid(x)[i] = 0.0 + 0.01 * epsi[i] * std::pow(std::cos(x[0]*dx(grid,0)*qi[i][0] + x[1]*dx(grid,1)*qi[i][1]),2); // phase
+      if (isOutside(x)) {
+      	grid(x)[0] = 0.0;
+				for (int i=1; i<fields(grid); i++)
+		      grid(x)[i] = 0.0;
+      } else {
+      	grid(x)[0] = 0.5 + 0.01 * std::cos(x[0]*dx(grid,0)*q[0] + x[1]*dx(grid,1)*q[1]); // conc
+				for (int i=1; i<fields(grid); i++)
+	      	grid(x)[i] = 0.0 + 0.01 * epsi[i] * std::pow(std::cos(x[0]*dx(grid,0)*qi[i][0] + x[1]*dx(grid,1)*qi[i][1]),2); // phase
+	    }
     }
 
     #ifdef MPI_VERSION
@@ -245,7 +251,7 @@ void update(MMSP::grid<2,MMSP::vector<double> >& grid, int steps)
 				                                      - epsilon*phase*(sum-std::pow(phase,2)) + kappa*lap);
 				double de = energydensity(update(x));
 				if (std::isfinite(de))
-					energy += energydensity(update(x));
+					energy += dx(grid)*dy(grid)*energydensity(update(x));
 				else
 					err++;
 			}

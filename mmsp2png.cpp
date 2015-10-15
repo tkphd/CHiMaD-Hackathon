@@ -103,8 +103,13 @@ int main(int argc, char* argv[])
   if (scalar_type) {
 		  if (uchar_type) {
 	  		MMSP::grid<2,unsigned char> grid(argv[1]);
-	 			for (int n=0; n<nodes(grid); ++n)
-					buffer[n] = grid(n);
+		 		int n=0;
+		 		for (int y=x0[1]; y<x1[1]; y++) {
+          for (int x=x0[0]; x<x1[0]; x++) {
+						buffer[n] = grid[x][y];
+						n++;
+					}
+				}
 			}
 		  else if (float_type) {
 	  		MMSP::grid<2,float> grid(argv[1]);
@@ -117,8 +122,13 @@ int main(int argc, char* argv[])
 			 		else if (i<min) min=i;
 			 	}
 			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"]."<<std::endl;
-		 		for (int n=0; n<nodes(grid); ++n)
-					buffer[n] = (grid(n)>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(grid(n)-min)/(max-min);
+		 		int n=0;
+		 		for (int y=x0[1]; y<x1[1]; y++) {
+          for (int x=x0[0]; x<x1[0]; x++) {
+						buffer[n] = (grid[x][y]>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(grid[x][y]-min)/(max-min);
+						n++;
+					}
+				}
 			} else if (double_type) {
 	  		MMSP::grid<2,double> grid(argv[1]);
 			  float max=std::numeric_limits<double>::min();
@@ -130,8 +140,13 @@ int main(int argc, char* argv[])
 			 		else if (i<min) min=i;
 			 	}
 			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"]."<<std::endl;
-		 		for (int n=0; n<nodes(grid); ++n)
-					buffer[n] = (grid(n)>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(grid(n)-min)/(max-min);
+		 		int n=0;
+		 		for (int y=x0[1]; y<x1[1]; y++) {
+          for (int x=x0[0]; x<x1[0]; x++) {
+						buffer[n] = (grid[x][y]>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(grid[x][y]-min)/(max-min);
+						n++;
+					}
+				}
 		  } else {
 		    std::cerr<<"File input error: png from "<<type<<" not implemented."<<std::endl;
     		delete [] buffer; buffer=NULL;
@@ -161,12 +176,16 @@ int main(int argc, char* argv[])
 			 		else if (mag<pmin) pmin=mag;
 			 	}
 			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"], ["<<pmin<<','<<pmax<<"]."<<std::endl;
-		 		for (int n=0; n<nodes(grid); ++n) {
-					buffer[n] = 255*(grid(n)[field]-min)/(max-min);
-	 				float mag = 0.0;
-	 				for (int i=1; i<MMSP::fields(grid); i++)
-	 					mag += pow(grid(n)[i],2);
-					pbuffer[n] = 255*(std::sqrt(mag)-pmin)/(pmax-pmin);
+		 		int n=0;
+		 		for (int y=x0[1]; y<x1[1]; y++) {
+          for (int x=x0[0]; x<x1[0]; x++) {
+						buffer[n] = 255*(grid[x][y][field]-min)/(max-min);
+	 					float mag = 0.0;
+	 					for (int i=1; i<MMSP::fields(grid); i++)
+		 					mag += pow(grid[x][y][i],2);
+						pbuffer[n] = 255*(std::sqrt(mag)-pmin)/(pmax-pmin);
+						n++;
+					}
 				}
 			} else if (double_type) {
 	  		MMSP::grid<2,MMSP::vector<double> > grid(argv[1]);
@@ -187,12 +206,16 @@ int main(int argc, char* argv[])
 			 		else if (grid(n)[field]<min) min=grid(n)[field];
 			 	}
 			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"], ["<<pmin<<','<<pmax<<"]."<<std::endl;
-		 		for (int n=0; n<nodes(grid); ++n) {
-					buffer[n] = 255*(grid(n)[field]-min)/(max-min);
-	 				double mag = 0.0;
-	 				for (int i=1; i<MMSP::fields(grid); i++)
-	 					mag += pow(grid(n)[i],2);
-					pbuffer[n] = 255*(std::sqrt(mag)-pmin)/(pmax-pmin);
+		 		int n=0;
+		 		for (int y=x0[1]; y<x1[1]; y++) {
+          for (int x=x0[0]; x<x1[0]; x++) {
+						buffer[n] = 255*(grid[x][y][field]-min)/(max-min);
+		 				double mag = 0.0;
+	 					for (int i=1; i<MMSP::fields(grid); i++)
+	 						mag += pow(grid[x][y][i],2);
+						pbuffer[n] = 255*(std::sqrt(mag)-pmin)/(pmax-pmin);
+						n++;
+					}
 				}
 		  } else {
 		    std::cerr<<"File input error: png from "<<type<<" not implemented."<<std::endl;
@@ -204,19 +227,27 @@ int main(int argc, char* argv[])
 		} else {
 		  if (float_type) {
 	  		MMSP::grid<2,MMSP::vector<float> > grid(argv[1]);
-			 	for (int n=0; n<nodes(grid); ++n) {
-			  	float sum=0;
-  				for (int i=0; i<fields; ++i)
-		  			sum += grid(n)[i]*grid(n)[i];
-					buffer[n] = 255*sqrt(sum);
+			 	int n=0;
+			 	for (int y=x0[1]; y<x1[1]; y++) {
+    	     for (int x=x0[0]; x<x1[0]; x++) {
+				  	float sum=0;
+		  			for (int i=0; i<fields; ++i)
+				 			sum += grid[x][y][i]*grid[x][y][i];
+						buffer[n] = 255*sqrt(sum);
+						n++;
+					}
 				}
  			} else if (double_type) {
 	  		MMSP::grid<2,MMSP::vector<double> > grid(argv[1]);
-			 	for (int n=0; n<nodes(grid); ++n) {
-			  	float sum=0;
-  				for (int i=0; i<fields; ++i)
-		  			sum += grid(n)[i]*grid(n)[i];
-					buffer[n] = 255*sqrt(sum);
+		 		int n=0;
+		 		for (int y=x0[1]; y<x1[1]; y++) {
+   	      for (int x=x0[0]; x<x1[0]; x++) {
+				  	float sum=0;
+  					for (int i=0; i<fields; ++i)
+			  			sum += grid[x][y][i]*grid[x][y][i];
+						buffer[n] = 255*sqrt(sum);
+						n++;
+					}
 				}
 		  } else {
 		    std::cerr<<"File input error: png from "<<type<<" not implemented."<<std::endl;
@@ -243,12 +274,16 @@ int main(int argc, char* argv[])
 		 		else if (sqrt(sum)<min) min=sqrt(sum);
 		 	}
 		 	std::cout<<"Rescaling for |φ| in ["<<min<<", "<<max<<"]."<<std::endl;
-		 	for (int n=0; n<nodes(grid); ++n) {
-  			int nonzero = MMSP::length(grid(n));
-		  	float sum=0;
-  			for (int i=0; i<nonzero; ++i)
-		  		sum += grid(n).value(i)*grid(n).value(i);
-				buffer[n] = (sqrt(sum)>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(sqrt(sum)-min)/(max-min);
+	 		int n=0;
+	 		for (int y=x0[1]; y<x1[1]; y++) {
+ 	      for (int x=x0[0]; x<x1[0]; x++) {
+	  			int nonzero = MMSP::length(grid[x][y]);
+			  	float sum=0;
+  				for (int i=0; i<nonzero; ++i)
+		  			sum += grid[x][y].value(i)*grid[x][y].value(i);
+					buffer[n] = (sqrt(sum)>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(sqrt(sum)-min)/(max-min);
+					n++;
+				}
  			}
 		} else if (double_type) {
 	  	// Image |{φ}|
@@ -265,12 +300,16 @@ int main(int argc, char* argv[])
 		 		else if (sqrt(sum)<min) min=sqrt(sum);
 		 	}
 		 	std::cout<<"Rescaling for |φ| in ["<<min<<", "<<max<<"]."<<std::endl;
-		 	for (int n=0; n<nodes(grid); ++n) {
-  			int nonzero = MMSP::length(grid(n));
-		  	float sum=0;
-  			for (int i=0; i<nonzero; ++i)
-		  		sum += grid(n).value(i)*grid(n).value(i);
-				buffer[n] = (sqrt(sum)>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(sqrt(sum)-min)/(max-min);
+	 		int n=0;
+	 		for (int y=x0[1]; y<x1[1]; y++) {
+ 	      for (int x=x0[0]; x<x1[0]; x++) {
+	  			int nonzero = MMSP::length(grid[x][y]);
+			  	float sum=0;
+  				for (int i=0; i<nonzero; ++i)
+		  			sum += grid[x][y].value(i)*grid[x][y].value(i);
+					buffer[n] = (sqrt(sum)>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(sqrt(sum)-min)/(max-min);
+					n++;
+				}
  			}
 		}
   } else {
