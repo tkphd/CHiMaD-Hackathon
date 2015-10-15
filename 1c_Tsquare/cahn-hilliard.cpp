@@ -29,14 +29,24 @@ namespace MMSP {
 
 bool isOutside(const MMSP::vector<int>& x)
 {
-	if ((x[1] < 99) && ((x[0]<20) || (x[0]>59)))
+	if ((x[1] < 99) && (x[0]<40))
 		return true;
+	else if ((x[1] < 99) && (x[0]>59))
+		return true;
+	return false;
 }
 
 bool isBorderline(const MMSP::vector<int>& x)
 {
-	if ((x[1]==99) && ((x[0]==20) || (x[0]==60)))
+	if ((x[1]==99) && (x[0]<40))
 		return true;
+	else if ((x[1]==99) && (x[0]>59))
+		return true;
+	else if ((x[1]<99) && (x[0]==40))
+		return true;
+	else if ((x[1]<99) && (x[0]==60))
+		return true;
+	return false;
 }
 
 // custom Laplacian for boundary points
@@ -55,7 +65,7 @@ T zfLaplacian(const grid<dim, T>& GRID, const vector<int>& x)
     s[i] += 1;
 
     double weight = 1.0 / (dx(GRID, i) * dx(GRID, i));
-    if (x[1]==99 && x[0]==20) // low side
+    if (x[1]==99 && x[0]==40) // low side
     	laplacian += weight * (yh - y);
     else if (x[1]==99 && x[0]==60) // high side
     	laplacian += weight * (-y + yl);
@@ -120,7 +130,7 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		    MMSP::b0(grid,d) = Neumann; // enumerated in MMSP.utility.hpp
 		else if (MMSP::x1(grid,d)==MMSP::g1(grid,d))
 		    MMSP::b1(grid,d) = Neumann; // enumerated in MMSP.utility.hpp
-    }
+  }
 
     // Let's be absolutely explicit about BCs here.
 	MMSP::grid<dim,T> update(grid);
@@ -130,7 +140,7 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		    MMSP::b0(update,d) = Neumann; // enumerated in MMSP.utility.hpp
 		else if (MMSP::x1(update,d)==MMSP::g1(update,d))
 		    MMSP::b1(update,d) = Neumann; // enumerated in MMSP.utility.hpp
-    }
+  }
 	MMSP::grid<dim,T> temp(grid);
 	for (int d=0; d<dim; d++) {
 		dx(temp,d) = deltaX;
@@ -138,17 +148,17 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		    MMSP::b0(temp,d) = Neumann; // enumerated in MMSP.utility.hpp
 		else if (MMSP::x1(temp,d)==MMSP::g1(temp,d))
 		    MMSP::b1(temp,d) = Neumann; // enumerated in MMSP.utility.hpp
-    }
+  }
 
 
 	for (int step=0; step<steps; step++) {
-		for (int i=0; i<nodes(grid); i++) {
-			MMSP::vector<int> x = position(grid,i);
+		for (int n=0; n<nodes(grid); n++) {
+			MMSP::vector<int> x = position(grid,n);
 			if (isOutside(x))
 				continue;
 			double c = grid(x);
 			double dfdc = -A*(c-Cm) + B*pow(c-Cm, 3) + Ca*pow(c-Ca, 3) + Cb*pow(c-Cb, 3);
-			temp(i) = dfdc - K*zfLaplacian(grid,x);
+			temp(x) = dfdc - K*zfLaplacian(grid,x);
 		}
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
@@ -156,8 +166,8 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		ghostswap(temp);
 
 		double energy = 0.0;
-		for (int i=0; i<nodes(grid); i++) {
-			MMSP::vector<int> x = position(grid,i);
+		for (int n=0; n<nodes(grid); n++) {
+			MMSP::vector<int> x = position(grid,n);
 			if (isOutside(x))
 				continue;
 			update(x) = grid(x)+dt*D*zfLaplacian(temp,x);
