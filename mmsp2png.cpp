@@ -12,6 +12,7 @@
 #include <sstream>
 #include <cstdlib>
 #include <cmath>
+#include <cassert>
 #include <zlib.h>
 #include <IL/il.h>
 #include <IL/ilu.h>
@@ -110,11 +111,13 @@ int main(int argc, char* argv[])
   if (scalar_type) {
 		  if (uchar_type) {
 	  		MMSP::grid<2,unsigned char> grid(argv[1]);
+	  		assert(theSize==nodes(grid));
 	 			for (int n=0; n<nodes(grid); ++n)
 					buffer[n] = grid(n);
 			}
 		  else if (float_type) {
 	  		MMSP::grid<2,float> grid(argv[1]);
+	  		assert(theSize==nodes(grid));
 			  float max=std::numeric_limits<float>::min();
 			  float min=std::numeric_limits<float>::max();
 	 			for (int n=0; n<nodes(grid); ++n) {
@@ -127,7 +130,9 @@ int main(int argc, char* argv[])
 		 		for (int n=0; n<nodes(grid); ++n)
 					buffer[n] = (grid(n)>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(grid(n)-min)/(max-min);
 			} else if (double_type) {
+				std::cout<<type<<std::endl;
 	  		MMSP::grid<2,double> grid(argv[1]);
+	  		assert(theSize==nodes(grid));
 			  float max=std::numeric_limits<double>::min();
 			  float min=std::numeric_limits<double>::max();
 	 			for (int n=0; n<nodes(grid); ++n) {
@@ -137,8 +142,13 @@ int main(int argc, char* argv[])
 			 		else if (i<min) min=i;
 			 	}
 			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"]."<<std::endl;
-		 		for (int n=0; n<nodes(grid); ++n)
-					buffer[n] = (grid(n)>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1)?255:255*(grid(n)-min)/(max-min);
+		 		int n=0;
+		 		for (int y=x0[1]; y<x1[1]; y++) {
+			 		for (int x=x0[0]; x<x1[0]; x++) {
+						buffer[n] = 255*(grid[x][y]-min)/(max-min);
+						n++;
+					}
+				}
 		  } else {
 		    std::cerr<<"File input error: png from "<<type<<" not implemented."<<std::endl;
     		delete [] buffer; buffer=NULL;
@@ -149,6 +159,7 @@ int main(int argc, char* argv[])
   		int field=0;
 		  if (float_type) {
 	  		MMSP::grid<2,MMSP::vector<float> > grid(argv[1]);
+	  		assert(theSize==nodes(grid));
 			  float max=std::numeric_limits<float>::min();
 			  float min=std::numeric_limits<float>::max();
 	 			for (int n=0; n<nodes(grid); ++n) {
@@ -159,7 +170,9 @@ int main(int argc, char* argv[])
 		 		for (int n=0; n<nodes(grid); ++n)
 					buffer[n] = 255*(grid(n)[field]-min)/(max-min);
 			} else if (double_type) {
+			  std::cout<<type<<std::endl;
 	  		MMSP::grid<2,MMSP::vector<double> > grid(argv[1]);
+	  		assert(theSize==nodes(grid));
 			  float max=std::numeric_limits<double>::min();
 			  float min=std::numeric_limits<double>::max();
 	 			for (int n=0; n<nodes(grid); ++n) {
@@ -167,8 +180,13 @@ int main(int argc, char* argv[])
 			 		else if (grid(n)[field]<min) min=grid(n)[field];
 			 	}
 			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"]."<<std::endl;
-		 		for (int n=0; n<nodes(grid); ++n)
-					buffer[n] = 255*(grid(n)[field]-min)/(max-min);
+		 		int n=0;
+		 		for (int y=x0[1]; y<x1[1]; y++) {
+			 		for (int x=x0[0]; x<x1[0]; x++) {
+						buffer[n] = 255*(grid[x][y][field]-min)/(max-min);
+						n++;
+					}
+				}
 		  } else {
 		    std::cerr<<"File input error: png from "<<type<<" not implemented."<<std::endl;
     		delete [] buffer; buffer=NULL;
@@ -177,6 +195,7 @@ int main(int argc, char* argv[])
 		} else {
 		  if (float_type) {
 	  		MMSP::grid<2,MMSP::vector<float> > grid(argv[1]);
+	  		assert(theSize==nodes(grid));
 			 	for (int n=0; n<nodes(grid); ++n) {
 			  	float sum=0;
   				for (int i=0; i<fields; ++i)
@@ -185,6 +204,7 @@ int main(int argc, char* argv[])
 				}
  			} else if (double_type) {
 	  		MMSP::grid<2,MMSP::vector<double> > grid(argv[1]);
+	  		assert(theSize==nodes(grid));
 			 	for (int n=0; n<nodes(grid); ++n) {
 			  	float sum=0;
   				for (int i=0; i<fields; ++i)
@@ -204,6 +224,7 @@ int main(int argc, char* argv[])
 		 	altfile.append("_x.png");
 	  	// Image |{φ}|
 	  	MMSP::grid<2,MMSP::sparse<float> > grid(argv[1]);
+  		assert(theSize==nodes(grid));
 		  float max=std::numeric_limits<float>::min();
 		  float min=std::numeric_limits<float>::max();
  			for (int n=0; n<nodes(grid); ++n) {
@@ -226,6 +247,7 @@ int main(int argc, char* argv[])
 		} else if (double_type) {
 	  	// Image |{φ}|
 	  	MMSP::grid<2,MMSP::sparse<double> > grid(argv[1]);
+  		assert(theSize==nodes(grid));
 		  float max=std::numeric_limits<double>::min();
 		  float min=std::numeric_limits<double>::max();
  			for (int n=0; n<nodes(grid); ++n) {

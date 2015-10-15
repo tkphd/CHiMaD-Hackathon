@@ -7,10 +7,10 @@ incdir = $(MMSP_PATH)/include
 
 # compilers/flags
 compiler = g++
-flags = -O3 -I $(incdir)
+flags = -O3 -Wall -I $(incdir)
 pcompiler = mpicxx
 ccompiler = mpicxx.mpich2
-pflags = -O3 -I $(incdir) -include mpi.h
+pflags = -O3 -Wall -I $(incdir) -include mpi.h
 
 # dependencies
 core = $(incdir)/MMSP.main.hpp \
@@ -28,4 +28,4 @@ ctcms: cahn-hilliard.cpp $(core)
 	$(ccompiler) $(pflags) $< -o $@ -lz
 
 clean:
-	rm -f cahn-hilliard parallel
+	rm -f cahn-hilliard parallel ctcms

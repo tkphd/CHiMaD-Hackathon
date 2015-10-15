@@ -8,7 +8,6 @@
 #include<cmath>
 #include"cahn-hilliard.hpp"
 
-const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
 const double deltaX = 1.0;
 const double Ca = 0.05;
 const double Cb = 0.95;
@@ -29,9 +28,7 @@ namespace MMSP {
 
 bool isOutside(const MMSP::vector<int>& x)
 {
-	if ((x[1] < 99) && (x[0]<40))
-		return true;
-	else if ((x[1] < 99) && (x[0]>59))
+	if ((x[1]<99) && ((x[0]<40) || (x[0]>59)))
 		return true;
 	return false;
 }
@@ -88,8 +85,11 @@ void generate(int dim, const char* filename)
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
 
+	const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
+
 	if (dim==2) {
-		MMSP::grid<2,double> grid(1,0,100,0,120);
+		MMSP::grid<2,double> grid(0,0,100,0,120);
+
 		for (int d=0; d<dim; d++){
 			dx(grid,d) = deltaX;
 			if (MMSP::x0(grid,d)==MMSP::g0(grid,d))
