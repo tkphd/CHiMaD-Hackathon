@@ -19,9 +19,14 @@ const double D = 2.0/(Cb-Ca);
 const double K = 2.0;
 const double dt = 0.005; //std::pow(deltaX, 4)/(160 * K); // 0.003125 appears stable
 
-double energydensity(double c)
+double energydensity(const double& C)
 {
-	return -0.5*A*pow(c-Cm,2) + 0.25*B*pow(c-Cm,4) + 0.25*Ca*pow(c-Ca,4) + 0.25*Cb*pow(c-Cb,4);
+	return -0.5*A*pow(C-Cm,2) + 0.25*B*pow(C-Cm,4) + 0.25*Ca*pow(C-Ca,4) + 0.25*Cb*pow(C-Cb,4);
+}
+
+double dfdc(const double& C)
+{
+    return -A*(C-Cm) + B*pow(C-Cm, 3) + Ca*pow(C-Ca, 3) + Cb*pow(C-Cb, 3);
 }
 
 namespace MMSP {
@@ -64,6 +69,9 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
+
+    ghostswap(grid);
+
 	MMSP::grid<dim,T> update(grid);
 	MMSP::grid<dim,T> temp(grid);
 	// Make sure the grid spacing is correct
@@ -73,13 +81,11 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		dx(temp,d) = deltaX;
 	}
 
-
 	for (int step=0; step<steps; step++) {
 		for (int i=0; i<nodes(grid); i++) {
 			MMSP::vector<int> x = position(grid,i);
 			double c = grid(x);
-			double dfdc = -A*(c-Cm) + B*pow(c-Cm, 3) + Ca*pow(c-Ca, 3) + Cb*pow(c-Cb, 3);
-			temp(i) = dfdc - K*laplacian(grid,x);
+			temp(x) = dfdc(c) - K*laplacian(grid,x);
 		}
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
@@ -97,8 +103,10 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		double myenergy = energy;
 		MPI::COMM_WORLD.Allreduce(&myenergy, &energy, 1, MPI_DOUBLE, MPI_SUM);
 		#endif
+		#ifndef DEBUG
 		if (rank==0)
-			std::cout<<energy<<std::endl;
+			std::cout<<energy<<'\n';
+		#endif
 
 		swap(grid,update);
 		ghostswap(grid);

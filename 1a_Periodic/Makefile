@@ -8,6 +8,7 @@ incdir = $(MMSP_PATH)/include
 # compilers/flags
 compiler = g++
 flags = -O3 -I $(incdir)
+gflags = -g -pg -O2 -I $(incdir)
 pcompiler = mpicxx
 ccompiler = mpicxx.mpich2
 pflags = -O3 -I $(incdir) -include mpi.h
@@ -21,6 +22,9 @@ core = $(incdir)/MMSP.main.hpp \
 cahn-hilliard: cahn-hilliard.cpp $(core)
 	$(compiler) $(flags) $< -o $@ -lz
 
+debug: cahn-hilliard.cpp $(core)
+	$(compiler) -DDEBUG $(gflags) $< -o $@ -lz
+
 parallel: cahn-hilliard.cpp $(core)
 	$(pcompiler) $(pflags) $< -o $@ -lz
 
@@ -28,4 +32,4 @@ ctcms: cahn-hilliard.cpp $(core)
 	$(ccompiler) $(pflags) $< -o $@ -lz
 
 clean:
-	rm -f cahn-hilliard parallel
+	rm -f cahn-hilliard parallel ctcms debug
