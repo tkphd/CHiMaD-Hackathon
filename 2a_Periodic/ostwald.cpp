@@ -22,9 +22,8 @@ const double Db = g/std::pow(delta,2);
 const double kappa = 2.0;
 const double D = 1.0;
 const double L = 1.0;
-
-const double dt = 0.0025; //std::std::pow(deltaX, 4.0)/(160.0 * K); // might need updating
-const double CFL = dt*D*kappa/std::pow(deltaX,4);
+const double dt = 0.00375; //std::std::pow(deltaX, 4.0)/(160.0 * K); // might need updating
+const double CFL = 16.0*D*kappa*dt/std::pow(deltaX,4);
 
 double energydensity(const MMSP::vector<double>& value)
 {
@@ -126,7 +125,7 @@ void generate(int dim, const char* filename)
     #endif
 		MMSP::output(grid,filename);
 		if (rank==0)
-      std::cout<<"Timestep is "<<dt<<" (CFL="<<CFL<<')'<<std::endl;
+      std::cout<<"Timestep is "<<dt<<" (Co="<<CFL<<')'<<std::endl;
 	}
 }
 
@@ -150,6 +149,7 @@ void update(MMSP::grid<2,MMSP::vector<double> >& grid, int steps)
 	#endif
 
 	ghostswap(grid);
+
 	MMSP::grid<2,MMSP::vector<double> > update(grid);
 	MMSP::grid<2,double> wspace(grid,1);
 
