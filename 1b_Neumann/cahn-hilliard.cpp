@@ -17,12 +17,17 @@ const double A = 2.0;
 const double B = A/((Ca-Cm)*(Ca-Cm));
 const double D = 2.0/(Cb-Ca);
 const double K = 2.0;
-const double dt = 0.005; 
-const double CFL = K/std::pow(deltaX, 4);
+const double dt = 0.005;
+const double CFL = 16.0*D*K*dt/std::pow(deltaX, 4);
 
 double energydensity(double c)
 {
 	return -0.5*A*pow(c-Cm,2) + 0.25*B*pow(c-Cm,4) + 0.25*Ca*pow(c-Ca,4) + 0.25*Cb*pow(c-Cb,4);
+}
+
+double dfdc(const double& C)
+{
+    return -A*(C-Cm) + B*pow(C-Cm, 3) + Ca*pow(C-Ca, 3) + Cb*pow(C-Cb, 3);
 }
 
 namespace MMSP {
@@ -59,7 +64,7 @@ void generate(int dim, const char* filename)
 		#endif
 		output(grid,filename);
 		if (rank==0)
-			std::cout<<"Timestep is "<<dt<<" (CFL="<<CFL<<')'<<std::endl;
+			std::cout<<"Timestep is "<<dt<<" (Co="<<CFL<<')'<<std::endl;
 	}
 }
 
@@ -80,6 +85,8 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		    MMSP::b1(grid,d) = Neumann; // enumerated in MMSP.utility.hpp
     }
 
+	ghostswap(grid);
+
     // Let's be absolutely explicit about BCs here.
 	MMSP::grid<dim,T> update(grid);
 	for (int d=0; d<dim; d++) {
@@ -89,6 +96,7 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		else if (MMSP::x1(update,d)==MMSP::g1(update,d))
 		    MMSP::b1(update,d) = Neumann; // enumerated in MMSP.utility.hpp
     }
+
 	MMSP::grid<dim,T> temp(grid);
 	for (int d=0; d<dim; d++) {
 		dx(temp,d) = deltaX;
@@ -103,8 +111,7 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		for (int i=0; i<nodes(grid); i++) {
 			MMSP::vector<int> x = position(grid,i);
 			double c = grid(x);
-			double dfdc = -A*(c-Cm) + B*pow(c-Cm, 3) + Ca*pow(c-Ca, 3) + Cb*pow(c-Cb, 3);
-			temp(i) = dfdc - K*laplacian(grid,x);
+			temp(i) = dfdc(c) - K*laplacian(grid,x);
 		}
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
@@ -112,18 +119,22 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		ghostswap(temp);
 
 		double energy = 0.0;
+		double mass = 0.0;
 		for (int i=0; i<nodes(grid); i++) {
 			MMSP::vector<int> x = position(grid,i);
 			update(x) = grid(x)+dt*D*laplacian(temp,x);
 			energy += dx(grid)*dy(grid)*energydensity(update(x));
+			mass += dx(grid)*dy(grid)*update(x);
 		}
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
-		double myenergy = energy;
-		MPI::COMM_WORLD.Allreduce(&myenergy, &energy, 1, MPI_DOUBLE, MPI_SUM);
+		double myEnergy = energy;
+		double myMass = mass;
+		MPI::COMM_WORLD.Allreduce(&myEnergy, &energy, 1, MPI_DOUBLE, MPI_SUM);
+		MPI::COMM_WORLD.Allreduce(&myMass, &mass, 1, MPI_DOUBLE, MPI_SUM);
 		#endif
 		if (rank==0)
-			std::cout<<energy<<std::endl;
+		    std::cout<<energy<<'\t'<<mass<<'\n';
 
 		swap(grid,update);
 		ghostswap(grid);

@@ -9,7 +9,8 @@
 #include"cahn-hilliard.hpp"
 
 const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
-const double deltaX = 1.0;
+const double deltaX = 1.0/std::sqrt(2);
+const int edge = 200*sqrt(2);
 const double Ca = 0.05;
 const double Cb = 0.95;
 const double Cm = 0.5*(Ca + Cb);
@@ -17,12 +18,12 @@ const double A = 2.0;
 const double B = A/((Ca-Cm)*(Ca-Cm));
 const double D = 2.0/(Cb-Ca);
 const double K = 2.0;
-const double dt = 0.005; //std::pow(deltaX, 4)/(160 * K); // 0.003125 appears stable
+const double dt = 0.001; //std::pow(deltaX, 4)/(160 * K); // 0.003125 appears stable
 const double CFL = 16.0*D*K*dt/std::pow(deltaX, 4);
 
-double energydensity(const double& C)
+double energydensity(double c)
 {
-	return -0.5*A*pow(C-Cm,2) + 0.25*B*pow(C-Cm,4) + 0.25*Ca*pow(C-Ca,4) + 0.25*Cb*pow(C-Cb,4);
+	return -0.5*A*pow(c-Cm,2) + 0.25*B*pow(c-Cm,4) + 0.25*Ca*pow(c-Ca,4) + 0.25*Cb*pow(c-Cb,4);
 }
 
 double dfdc(const double& C)
@@ -45,7 +46,7 @@ void generate(int dim, const char* filename)
 	#endif
 
 	if (dim==2) {
-		MMSP::grid<2,double> grid(1,0,200,0,200);
+		MMSP::grid<2,double> grid(1,0,edge,0,edge);
 		for (int d=0; d<dim; d++)
 			dx(grid,d) = deltaX;
 
@@ -70,9 +71,6 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
-
-    ghostswap(grid);
-
 	MMSP::grid<dim,T> update(grid);
 	MMSP::grid<dim,T> temp(grid);
 	// Make sure the grid spacing is correct
@@ -82,11 +80,12 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		dx(temp,d) = deltaX;
 	}
 
+
 	for (int step=0; step<steps; step++) {
 		for (int i=0; i<nodes(grid); i++) {
 			MMSP::vector<int> x = position(grid,i);
 			double c = grid(x);
-			temp(x) = dfdc(c) - K*laplacian(grid,x);
+			temp(i) = dfdc(c) - K*laplacian(grid,x);
 		}
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
@@ -105,13 +104,11 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		MPI::COMM_WORLD.Barrier();
 		double myEnergy = energy;
 		double myMass = mass;
-		MPI::COMM_WORLD.Reduce(&myEnergy, &energy, 1, MPI_DOUBLE, MPI_SUM, 0);
-		MPI::COMM_WORLD.Reduce(&myMass, &mass, 1, MPI_DOUBLE, MPI_SUM, 0);
+        MPI::COMM_WORLD.Reduce(&myEnergy, &energy, 1, MPI_DOUBLE, MPI_SUM, 0);
+        MPI::COMM_WORLD.Reduce(&myMass, &mass, 1, MPI_DOUBLE, MPI_SUM, 0);
 		#endif
-		#ifndef DEBUG
 		if (rank==0)
-			std::cout<<energy<<'\t'<<mass<<'\n';
-		#endif
+            std::cout<<energy<<'\t'<<mass<<'\n';
 
 		swap(grid,update);
 		ghostswap(grid);
