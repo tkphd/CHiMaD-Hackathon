@@ -133,12 +133,18 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		MPI::COMM_WORLD.Allreduce(&myEnergy, &energy, 1, MPI_DOUBLE, MPI_SUM);
 		MPI::COMM_WORLD.Allreduce(&myMass, &mass, 1, MPI_DOUBLE, MPI_SUM);
 		#endif
+		#ifndef DEBUG
 		if (rank==0)
 		    std::cout<<energy<<'\t'<<mass<<'\n';
+		#endif
 
 		swap(grid,update);
 		ghostswap(grid);
 	}
+	#ifndef DEBUG
+	if (rank==0)
+	    std::cout<<std::flush;
+	#endif
 }
 
 } // MMSP

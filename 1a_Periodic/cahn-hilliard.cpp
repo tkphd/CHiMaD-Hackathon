@@ -8,7 +8,6 @@
 #include<cmath>
 #include"cahn-hilliard.hpp"
 
-const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
 const double deltaX = 1.0;
 const double Ca = 0.05;
 const double Cb = 0.95;
@@ -17,8 +16,8 @@ const double A = 2.0;
 const double B = A/((Ca-Cm)*(Ca-Cm));
 const double D = 2.0/(Cb-Ca);
 const double K = 2.0;
-const double dt = 0.005; //std::pow(deltaX, 4)/(160 * K); // 0.003125 appears stable
-const double CFL = 16.0*D*K*dt/std::pow(deltaX, 4);
+const double dt = 0.005;
+const double CFL = 32.0*D*K*dt/std::pow(deltaX, 4);
 
 double energydensity(const double& C)
 {
@@ -43,6 +42,8 @@ void generate(int dim, const char* filename)
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
+
+    const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
 
 	if (dim==2) {
 		MMSP::grid<2,double> grid(1,0,200,0,200);
@@ -97,7 +98,7 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		double mass = 0.0;
 		for (int i=0; i<nodes(grid); i++) {
 			MMSP::vector<int> x = position(grid,i);
-			update(x) = grid(x)+dt*D*laplacian(temp,x);
+			update(x) = grid(x) + dt*D*laplacian(temp,x);
 			energy += dx(grid)*dy(grid)*energydensity(update(x));
 			mass += dx(grid)*dy(grid)*update(x);
 		}
@@ -116,6 +117,10 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		swap(grid,update);
 		ghostswap(grid);
 	}
+	#ifndef DEBUG
+	if (rank==0)
+		std::cout<<std::flush;
+	#endif
 }
 
 } // MMSP
