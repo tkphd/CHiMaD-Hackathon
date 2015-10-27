@@ -4,6 +4,7 @@
 
 # includes
 incdir = $(MMSP_PATH)/include
+ANACONDA = /users/tnk10/.conda/envs/mmsp
 
 # compilers/flags
 compiler = g++
@@ -15,8 +16,8 @@ core = $(incdir)/MMSP.main.hpp \
        $(incdir)/MMSP.grid.hpp
 
 # the program
-mmsp2png: mmsp2png.cpp $(core) /usr/include/IL/devil_cpp_wrapper.hpp
-	$(compiler) $(flags) -I /usr/include/IL -include il.h $< -o $@ -lz -lIL -lILU -lILUT
+mmsp2png: mmsp2png.cpp $(core) $(ANACONDA)/include/IL/devil_cpp_wrapper.hpp
+	$(compiler) $(flags) -I $(ANACONDA)/include $< -o $@ -L $(ANACONDA)/lib -lz -lIL -lILU -lILUT
 
 clean:
 	rm -f mmsp2png

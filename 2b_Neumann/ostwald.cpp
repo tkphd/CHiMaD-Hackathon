@@ -234,6 +234,10 @@ void update(MMSP::grid<2,MMSP::vector<double> >& grid, int steps)
 		swap(grid,update);
 		ghostswap(grid);
 	}
+    #ifndef DEBUG
+    if (rank==0)
+        std::cout<<std::flush;
+    #endif
 }
 
 } // namespace MMSP

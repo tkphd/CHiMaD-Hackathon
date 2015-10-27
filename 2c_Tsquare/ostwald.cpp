@@ -67,24 +67,14 @@ namespace MMSP{
 
 bool isOutside(const MMSP::vector<int>& x)
 {
-  if ((x[1]<99) && ((x[0]<40) || (x[0]>59)))
+  if ((x[1]<100) && ((x[0]<40) || (x[0]>59)))
     return true;
-  return false;
-}
-
-bool isBorderline(const MMSP::vector<int>& x)
-{
-  if ((x[1]==99) && (x[0]>40) && (x[0]<60))
-    return true;
-  else if ((x[1]<99) && ((x[0]==40) || (x[0]==59)))
-    return true;
-
   return false;
 }
 
 // custom Laplacian for boundary points and specified field
 template <int dim, typename T>
-T zfLaplacian(const grid<dim, MMSP::vector<T> >& GRID, const vector<int>& x, const int field)
+T zfLaplacian(const grid<dim,MMSP::vector<T> >& GRID, const vector<int>& x, const int field)
 {
   T laplacian = 0.0;
   MMSP::vector<int> s = x;
@@ -92,26 +82,19 @@ T zfLaplacian(const grid<dim, MMSP::vector<T> >& GRID, const vector<int>& x, con
 
   for (int i=0; i<dim; i++) {
     s[i] += 1;
-    const T& yh = GRID(s)[field];
+    const T& yh = (isOutside(s))?y:GRID(s)[field];
     s[i] -= 2;
-    const T& yl = GRID(s)[field];
+    const T& yl = (isOutside(s))?y:GRID(s)[field];
     s[i] += 1;
 
     double weight = 1.0 / (dx(GRID, i) * dx(GRID, i));
-    if (i==0 && x[1]<99 && x[0]==40) // low side vacant
-        laplacian += weight * (yh - y);
-    else if (i==0 && x[1]<=99 && x[0]==59) // high side vacant
-        laplacian += weight * (-y + yl);
-    else if (i==1 && x[1]==99 && (x[0]<=40 || x[0]>=59))
-        laplacian += weight * (yh - y);
-    else
-      laplacian += weight * (yh - 2.0 * y + yl);
+    laplacian += weight * (yh - 2.0 * y + yl);
   }
   return laplacian;
 }
 
 template <int dim, typename T>
-T zfLaplacian(const grid<dim, MMSP::scalar<T> >& GRID, const vector<int>& x)
+T zfLaplacian(const grid<dim,T>& GRID, const vector<int>& x)
 {
   T laplacian = 0.0;
   MMSP::vector<int> s = x;
@@ -119,20 +102,13 @@ T zfLaplacian(const grid<dim, MMSP::scalar<T> >& GRID, const vector<int>& x)
 
   for (int i=0; i<dim; i++) {
     s[i] += 1;
-    const T& yh = GRID(s);
+    const T& yh = (isOutside(s))?y:GRID(s);
     s[i] -= 2;
-    const T& yl = GRID(s);
+    const T& yl = (isOutside(s))?y:GRID(s);
     s[i] += 1;
 
     double weight = 1.0 / (dx(GRID, i) * dx(GRID, i));
-    if (i==0 && x[1]<99 && x[0]==40) // low side vacant
-        laplacian += weight * (yh - y);
-    else if (i==0 && x[1]<=99 && x[0]==59) // high side vacant
-        laplacian += weight * (-y + yl);
-    else if (i==1 && x[1]==99 && (x[0]<=40 || x[0]>=59))
-        laplacian += weight * (yh - y);
-    else
-      laplacian += weight * (yh - 2.0 * y + yl);
+    laplacian += weight * (yh - 2.0 * y + yl);
   }
   return laplacian;
 }
@@ -160,6 +136,7 @@ void generate(int dim, const char* filename)
 	}
 	if (dim==2) {
 		MMSP::grid<2,MMSP::vector<double> > grid(11,0,100,0,120);
+		//MMSP::grid<2,MMSP::vector<double> > grid(3,0,100,0,120);
 
     for (int d=0; d<dim; d++) {
       dx(grid,d) = deltaX;
@@ -173,12 +150,12 @@ void generate(int dim, const char* filename)
       MMSP::vector<int> x = position(grid,i);
       if (isOutside(x)) {
       	grid(x)[0] = 0.0;
-				for (int i=1; i<fields(grid); i++)
-		      grid(x)[i] = 0.0;
+        for (int i=1; i<fields(grid); i++)
+            grid(x)[i] = 0.0;
       } else {
-      	grid(x)[0] = 0.5 + 0.01 * std::cos(x[0]*dx(grid,0)*q[0] + x[1]*dx(grid,1)*q[1]); // conc
-				for (int i=1; i<fields(grid); i++)
-	      	grid(x)[i] = 0.0 + 0.01 * epsi[i] * std::pow(std::cos(x[0]*dx(grid,0)*qi[i][0] + x[1]*dx(grid,1)*qi[i][1]),2); // phase
+        grid(x)[0] = 0.5 + 0.01 * std::cos(x[0]*dx(grid,0)*q[0] + x[1]*dx(grid,1)*q[1]); // conc
+        for (int i=1; i<fields(grid); i++)
+            grid(x)[i] = 0.0 + 0.01 * epsi[i] * std::pow(std::cos(x[0]*dx(grid,0)*qi[i][0] + x[1]*dx(grid,1)*qi[i][1]),2); // phase
 	    }
     }
 
@@ -241,14 +218,18 @@ void update(MMSP::grid<2,MMSP::vector<double> >& grid, int steps)
 	for (int step=0; step<steps; step++) {
 		for (int n=0; n<nodes(grid); n++) {
 			MMSP::vector<int> x=position(grid,n);
-			double sum = 0.0;
-			for (int i=1; i<fields(grid); i++)
-				sum += std::pow(grid(x)[i],2);
+			if (isOutside(x)) {
+			    wspace(x) = 0.0;
+			} else {
+	    		double sum = 0.0;
+    			for (int i=1; i<fields(grid); i++)
+			    	sum += std::pow(grid(x)[i],2);
 
-			double C = grid(x)[0];
-			double lap = zfLaplacian(grid, x, 0);
+		    	double C = grid(x)[0];
+	    		double lap = zfLaplacian(grid, x, 0);
 
-			wspace(x) = df1dc(C) + df2dc(C,sum) - kappa*lap;
+    			wspace(x) = df1dc(C) + df2dc(C,sum) - kappa*lap;
+			}
 		}
 		ghostswap(wspace);
 
@@ -256,25 +237,30 @@ void update(MMSP::grid<2,MMSP::vector<double> >& grid, int steps)
 		double mass = 0.0;
 		for (int n=0; n<nodes(grid); n++) {
 			MMSP::vector<int> x=position(grid,n);
-			double lap = zfLaplacian(wspace, x);
-			double C = grid(x)[0];
+			if (isOutside(x)) {
+		    	for (int i=1; i<fields(grid); i++)
+    			    update(x)[i] = 0.0;
+			} else {
+    			double lap = zfLaplacian(wspace, x);
+	    		double C = grid(x)[0];
 
-			update(x)[0] = C + dt*D*lap;
+		    	update(x)[0] = C + dt*D*lap;
 
-			double sum = 0.0;
-			for (int i=1; i<fields(grid); i++)
-				sum += std::pow(grid(x)[i],2);
+			    double sum = 0.0;
+    			for (int i=1; i<fields(grid); i++)
+	    			sum += std::pow(grid(x)[i],2);
 
-			for (int i=1; i<fields(grid); i++) {
-				double phase = grid(x)[i];
-				double lap = zfLaplacian(grid, x, i);
+		    	for (int i=1; i<fields(grid); i++) {
+			    	double phase = grid(x)[i];
+				    double lap = zfLaplacian(grid, x, i);
 
-				update(x)[i] = phase - dt*L*(df2deta(C,phase) + df3deta(phase,sum) - kappa*lap);
+    				update(x)[i] = phase - dt*L*(df2deta(C,phase) + df3deta(phase,sum) - kappa*lap);
+    		    }
 
+	    		mass += dx(grid)*dy(grid)*update(x)[0];
+    			energy += dx(grid)*dy(grid)*energydensity(update(x));
 			}
 
-			mass += dx(grid)*dy(grid)*update(x)[0];
-			energy += dx(grid)*dy(grid)*energydensity(update(x));
 
 		}
         #ifdef MPI_VERSION
@@ -291,6 +277,10 @@ void update(MMSP::grid<2,MMSP::vector<double> >& grid, int steps)
 		swap(grid,update);
 		ghostswap(grid);
 	}
+    #ifndef DEBUG
+    if (rank==0)
+       std::cout<<std::flush;
+    #endif
 }
 
 } // namespace MMSP

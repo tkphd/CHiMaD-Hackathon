@@ -16,7 +16,7 @@
 #include <IL/il.h>
 #include <IL/ilu.h>
 #include <IL/ilut.h>
-#include "devil_cpp_wrapper.hpp"
+#include "IL/devil_cpp_wrapper.hpp"
 
 #include "MMSP.hpp"
 
@@ -175,7 +175,7 @@ int main(int argc, char* argv[])
  					if (mag>pmax) pmax=mag;
 			 		else if (mag<pmin) pmin=mag;
 			 	}
-			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"], ["<<pmin<<','<<pmax<<"]."<<std::endl;
+			 	std::cout<<"Rescaling for c in ["<<min<<", "<<max<<"], |φ| in ["<<pmin<<','<<pmax<<"]."<<std::endl;
 		 		int n=0;
 		 		for (int y=x0[1]; y<x1[1]; y++) {
           for (int x=x0[0]; x<x1[0]; x++) {
@@ -205,7 +205,7 @@ int main(int argc, char* argv[])
  					if (grid(n)[field]>max) max=grid(n)[field];
 			 		else if (grid(n)[field]<min) min=grid(n)[field];
 			 	}
-			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"], ["<<pmin<<','<<pmax<<"]."<<std::endl;
+			 	std::cout<<"Rescaling for c in ["<<min<<", "<<max<<"], |φ| in ["<<pmin<<','<<pmax<<"]."<<std::endl;
 		 		int n=0;
 		 		for (int y=x0[1]; y<x1[1]; y++) {
           for (int x=x0[0]; x<x1[0]; x++) {
