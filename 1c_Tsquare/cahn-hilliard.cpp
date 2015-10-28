@@ -7,27 +7,7 @@
 #include"MMSP.hpp"
 #include<cmath>
 #include"cahn-hilliard.hpp"
-
-const double deltaX = 1.0;
-const double Ca = 0.05;
-const double Cb = 0.95;
-const double Cm = 0.5*(Ca + Cb);
-const double A = 2.0;
-const double B = A/((Ca-Cm)*(Ca-Cm));
-const double D = 2.0/(Cb-Ca);
-const double K = 2.0;
-const double dt = 0.005;
-const double CFL = 32.0*D*K*dt/std::pow(deltaX, 4);
-
-double energydensity(const double& c)
-{
-	return -0.5*A*pow(c-Cm,2) + 0.25*B*pow(c-Cm,4) + 0.25*Ca*pow(c-Ca,4) + 0.25*Cb*pow(c-Cb,4);
-}
-
-double dfdc(const double& C)
-{
-    return -A*(C-Cm) + B*pow(C-Cm, 3) + Ca*pow(C-Ca, 3) + Cb*pow(C-Cb, 3);
-}
+#include"../energy.hpp"
 
 namespace MMSP {
 

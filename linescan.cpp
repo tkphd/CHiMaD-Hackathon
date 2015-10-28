@@ -4,14 +4,15 @@
 // Questions/Comments to trevor.keller@gmail.com (Trevor Keller)
 
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <cstdlib>
-#include <cmath>
-#include <zlib.h>
+#include<iostream>
+#include<fstream>
+#include<sstream>
+#include<cstdlib>
+#include<cmath>
+#include<zlib.h>
 
-#include "MMSP.hpp"
+#include"MMSP.hpp"
+#include"energy.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -95,22 +96,22 @@ int main(int argc, char* argv[])
     if (scalar_type) {
         if (uchar_type) {
 	        MMSP::grid<2,unsigned char> grid(argv[1]);
-	        of<<"y,φ(y)\n";
-	        MMSP::vector<int> x(2, (MMSP::y1(grid)-MMSP::y0(grid))/2);
-	        for (x[0]=MMSP::x0(grid); x[0]<MMSP::x1(grid); x[0]++)
-	            of<<x[0]<<','<<grid(x)<<'\n';
+	        of<<"y,f,c\n";
+	        MMSP::vector<int> x(2, (MMSP::x1(grid)-MMSP::x0(grid))/2);
+	        for (x[1]=MMSP::y0(grid); x[1]<MMSP::y1(grid); x[1]++)
+	            of<<x[1]<<','<<energydensity(grid(x))<<','<<grid(x)<<'\n';
         } else if (float_type) {
   	    	MMSP::grid<2,float> grid(argv[1]);
-	        of<<"y,φ(y)\n";
-	        MMSP::vector<int> x(2, (MMSP::y1(grid)-MMSP::y0(grid))/2);
-	        for (x[0]=MMSP::x0(grid); x[0]<MMSP::x1(grid); x[0]++)
-	            of<<x[0]<<','<<grid(x)<<'\n';
+	        of<<"y,f,c\n";
+	        MMSP::vector<int> x(2, (MMSP::x1(grid)-MMSP::x0(grid))/2);
+	        for (x[1]=MMSP::y0(grid); x[1]<MMSP::y1(grid); x[1]++)
+	            of<<x[1]<<','<<energydensity(grid(x))<<','<<grid(x)<<'\n';
     	} else if (double_type) {
   	    	MMSP::grid<2,double> grid(argv[1]);
-	        of<<"y,φ(y)\n";
-	        MMSP::vector<int> x(2, (MMSP::y1(grid)-MMSP::y0(grid))/2);
-	        for (x[0]=MMSP::x0(grid); x[0]<MMSP::x1(grid); x[0]++)
-	            of<<x[0]<<','<<grid(x)<<'\n';
+	        of<<"y,f,c\n";
+	        MMSP::vector<int> x(2, (MMSP::x1(grid)-MMSP::x0(grid))/2);
+	        for (x[1]=MMSP::y0(grid); x[1]<MMSP::y1(grid); x[1]++)
+	            of<<x[1]<<','<<energydensity(grid(x))<<','<<grid(x)<<'\n';
     	} else {
 	        std::cerr<<"File input error: png from "<<type<<" not implemented."<<std::endl;
        		exit(-1);
@@ -118,26 +119,26 @@ int main(int argc, char* argv[])
     } else if (vector_type) {
 		if (float_type) {
 	  	    MMSP::grid<2,MMSP::vector<float> > grid(argv[1]);
-	        of<<"y,";
+	        of<<"y";
             for (int i=0; i<MMSP::fields(grid); i++)
-                of<<",φ"<<i;
+                of<<",p"<<i;
             of<<'\n';
-	        MMSP::vector<int> x(2, (MMSP::y1(grid)-MMSP::y0(grid))/2);
-	        for (x[0]=MMSP::x0(grid); x[0]<MMSP::x1(grid); x[0]++) {
-	            of<<x[0];
+	        MMSP::vector<int> x(2, (MMSP::x1(grid)-MMSP::x0(grid))/2);
+	        for (x[1]=MMSP::y0(grid); x[1]<MMSP::y1(grid); x[1]++) {
+	            of<<x[1];
 	            for (int i=0; i<MMSP::fields(grid); i++)
 	                of<<','<<grid(x)[i];
 	            of<<'\n';
 	         }
 	    } else if (double_type) {
 	  	    MMSP::grid<2,MMSP::vector<double> > grid(argv[1]);
-	        of<<"y,";
+	        of<<"y";
             for (int i=0; i<MMSP::fields(grid); i++)
-                of<<",φ"<<i;
+                of<<",p"<<i;
             of<<'\n';
-	        MMSP::vector<int> x(2, (MMSP::y1(grid)-MMSP::y0(grid))/2);
-	        for (x[0]=MMSP::x0(grid); x[0]<MMSP::x1(grid); x[0]++) {
-	            of<<x[0];
+	        MMSP::vector<int> x(2, (MMSP::x1(grid)-MMSP::x0(grid))/2);
+	        for (x[1]=MMSP::y0(grid); x[1]<MMSP::y1(grid); x[1]++) {
+	            of<<x[1];
 	            for (int i=0; i<MMSP::fields(grid); i++)
 	                of<<','<<grid(x)[i];
 	            of<<'\n';
@@ -149,20 +150,20 @@ int main(int argc, char* argv[])
     } else if (sparse_type) {
         if (float_type) {
 	      	MMSP::grid<2,MMSP::sparse<float> > grid(argv[1]);
-	        of<<"y,|φ|,φ1,...\n";
-	        MMSP::vector<int> x(2, (MMSP::y1(grid)-MMSP::y0(grid))/2);
-	        for (x[0]=MMSP::x0(grid); x[0]<MMSP::x1(grid); x[0]++) {
-	            of<<x[0]<<','<<grid(x).getMagPhi();
+	        of<<"y,|p|,p1,...\n";
+	        MMSP::vector<int> x(2, (MMSP::x1(grid)-MMSP::x0(grid))/2);
+	        for (x[1]=MMSP::y0(grid); x[1]<MMSP::y1(grid); x[1]++) {
+	            of<<x[1]<<','<<grid(x).getMagPhi();
 	            for (int i=0; i<MMSP::length(grid(x)); i++)
 	                of<<','<<grid(x)[i];
 	            of<<'\n';
 	         }
 	} else if (double_type) {
     	  	MMSP::grid<2,MMSP::sparse<double> > grid(argv[1]);
-	        of<<"y,|φ|,φ1,...\n";
-	        MMSP::vector<int> x(2, (MMSP::y1(grid)-MMSP::y0(grid))/2);
-	        for (x[0]=MMSP::x0(grid); x[0]<MMSP::x1(grid); x[0]++) {
-	            of<<x[0]<<','<<grid(x).getMagPhi();
+	        of<<"y,|p|,p1,...\n";
+	        MMSP::vector<int> x(2, (MMSP::x1(grid)-MMSP::x0(grid))/2);
+	        for (x[1]=MMSP::y0(grid); x[1]<MMSP::y1(grid); x[1]++) {
+	            of<<x[1]<<','<<grid(x).getMagPhi();
 	            for (int i=0; i<MMSP::length(grid(x)); i++)
 	                of<<','<<grid(x)[i];
 	            of<<'\n';

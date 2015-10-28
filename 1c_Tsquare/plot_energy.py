@@ -8,7 +8,7 @@ e,c = np.loadtxt('energy.log',usecols=(0, 1), unpack=True, skiprows=1, delimiter
 t = dt*np.arange(0,len(e))
 
 #plt.plot(t, e)
-plt.semilogy(t, e-np.min(e))
+plt.loglog(t, e-np.min(e))
 plt.xlabel(r'Time (using $\Delta t=0.005$)')
 plt.ylabel(r'$\mathcal{F}-\mathcal{F}_{min}=\sum\sum f_0\Delta x\Delta y$ (arb. units)')
 plt.title("T-square Cahn-Hilliard")

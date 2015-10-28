@@ -7,29 +7,12 @@
 #include"MMSP.hpp"
 #include<cmath>
 #include"cahn-hilliard.hpp"
+#include"../energy.hpp"
 
-const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
-const double deltaX = 1.0/std::sqrt(2);
-const int edge = 200*sqrt(2);
-const double Ca = 0.05;
-const double Cb = 0.95;
-const double Cm = 0.5*(Ca + Cb);
-const double A = 2.0;
-const double B = A/((Ca-Cm)*(Ca-Cm));
-const double D = 2.0/(Cb-Ca);
-const double K = 2.0;
-const double dt = 0.001; //std::pow(deltaX, 4)/(160 * K); // 0.003125 appears stable
-const double CFL = 16.0*D*K*dt/std::pow(deltaX, 4);
-
-double energydensity(double c)
-{
-	return -0.5*A*pow(c-Cm,2) + 0.25*B*pow(c-Cm,4) + 0.25*Ca*pow(c-Ca,4) + 0.25*Cb*pow(c-Cb,4);
-}
-
-double dfdc(const double& C)
-{
-    return -A*(C-Cm) + B*pow(C-Cm, 3) + Ca*pow(C-Ca, 3) + Cb*pow(C-Cb, 3);
-}
+const double deltaXref = 1.0/std::sqrt(2);
+const int edgeref = 200*sqrt(2);
+const double dtref = 0.001;
+const double CFLref = 32.0*D*K*dtref/std::pow(deltaXref, 4);
 
 namespace MMSP {
 
@@ -45,10 +28,12 @@ void generate(int dim, const char* filename)
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
 
+    const double q[2] = {0.1*std::sqrt(2.0), 0.1*std::sqrt(3.0)};
+
 	if (dim==2) {
-		MMSP::grid<2,double> grid(1,0,edge,0,edge);
+		MMSP::grid<2,double> grid(1,0,edgeref,0,edgeref);
 		for (int d=0; d<dim; d++)
-			dx(grid,d) = deltaX;
+			dx(grid,d) = deltaXref;
 
 		for (int i=0; i<nodes(grid); i++) {
 			MMSP::vector<int> x = position(grid,i);
@@ -60,7 +45,7 @@ void generate(int dim, const char* filename)
 		#endif
 		output(grid,filename);
 		if (rank==0)
-			std::cout<<"Timestep is "<<dt<<" (Co="<<CFL<<')'<<std::endl;
+			std::cout<<"Timestep is "<<dtref<<" (Co="<<CFLref<<')'<<std::endl;
 	}
 }
 
@@ -75,9 +60,9 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 	MMSP::grid<dim,T> temp(grid);
 	// Make sure the grid spacing is correct
 	for (int d=0; d<dim; d++) {
-		dx(grid,d) = deltaX;
-		dx(update,d) = deltaX;
-		dx(temp,d) = deltaX;
+		dx(grid,d) = deltaXref;
+		dx(update,d) = deltaXref;
+		dx(temp,d) = deltaXref;
 	}
 
 
@@ -96,7 +81,7 @@ void update(MMSP::grid<dim,T>& grid, int steps)
 		double mass = 0.0;
 		for (int i=0; i<nodes(grid); i++) {
 			MMSP::vector<int> x = position(grid,i);
-			update(x) = grid(x)+dt*D*laplacian(temp,x);
+			update(x) = grid(x)+dtref*D*laplacian(temp,x);
 			energy += dx(grid)*dy(grid)*energydensity(update(x));
 			mass += dx(grid)*dy(grid)*update(x);
 		}
