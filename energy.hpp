@@ -14,8 +14,8 @@ const double A = 2.0;
 const double B = A/((Ca-Cm)*(Ca-Cm));
 const double D = 2.0/(Cb-Ca);
 const double K = 2.0;
-const double dt = 0.005;
-const double CFL = 32.0*D*K*dt/std::pow(deltaX, 4);
+const double CFL = 0.25;
+const double dt = std::pow(deltaX, 4)*CFL/(32.0*D*K);
 
 double energydensity(const double& C)
 {

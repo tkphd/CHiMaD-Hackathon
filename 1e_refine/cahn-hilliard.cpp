@@ -11,8 +11,10 @@
 
 const double deltaXref = 1.0/std::sqrt(2);
 const int edgeref = 200*sqrt(2);
-const double dtref = 0.001;
-const double CFLref = 32.0*D*K*dtref/std::pow(deltaXref, 4);
+//const double dtref = 0.001;
+//const double CFLref = 32.0*D*K*dtref/std::pow(deltaXref, 4);
+const double CFLref = 0.25;
+const double dtref = std::pow(deltaXref, 4)*CFLref/(32.0*D*K);
 
 namespace MMSP {
 
