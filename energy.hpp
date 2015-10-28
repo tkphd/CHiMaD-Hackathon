@@ -20,8 +20,8 @@ const double Db = g/std::pow(delta,2);
 const double kappa = 2.0;
 const double D = 1.0;
 const double L = 1.0;
-const double dt = 0.00375; //std::std::pow(deltaX, 4.0)/(160.0 * K); // might need updating
-const double CFL = 16.0*D*kappa*dt/std::pow(deltaX,4);
+const double CFL = 0.125;
+const double dt = std::pow(deltaX,4)*CFL/(32.0*D*kappa);
 
 double energydensity(const MMSP::vector<double>& value)
 {
