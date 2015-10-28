@@ -19,5 +19,8 @@ core = $(incdir)/MMSP.main.hpp \
 mmsp2png: mmsp2png.cpp $(core) $(ANACONDA)/include/IL/devil_cpp_wrapper.hpp
 	$(compiler) $(flags) -I $(ANACONDA)/include $< -o $@ -L $(ANACONDA)/lib -lz -lIL -lILU -lILUT
 
+linescan: linescan.cpp $(core)
+	$(compiler) $(flags) $< -o $@ -lz
+
 clean:
-	rm -f mmsp2png
+	rm -f mmsp2png linescan
