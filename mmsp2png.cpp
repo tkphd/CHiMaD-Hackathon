@@ -23,12 +23,14 @@
 
 void writePNG(const int w, const int h, const int bpp, unsigned char* imData, const char* filename);
 
-//template <int dim, class U, typename T>
-//void grid2png(const int field, const MMSP::grid<dim,U<T> >& grid, const char*& filename);
-
-//template <class T>
-//template <class U>
-//void grid2png(const MMSP::grid<2,U<T> >& grid, const char*& filename);
+template <class T>
+double magnitude(const MMSP::vector<T>& v)
+{
+	double mag=0.0;
+	for (int i=0; i<MMSP::length(v); i++)
+		mag += v[i]*v[i];
+	return std::sqrt(mag);
+}
 
 int main(int argc, char* argv[])
 {
@@ -118,8 +120,8 @@ int main(int argc, char* argv[])
 		  else if (float_type) {
 	  		MMSP::grid<2,float> grid(argv[1]);
 	  		assert(theSize==nodes(grid));
-			  float max=std::numeric_limits<float>::min();
-			  float min=std::numeric_limits<float>::max();
+			  float max=1.0; //std::numeric_limits<float>::min();
+			  float min=0.0; //std::numeric_limits<float>::max();
 	 			for (int n=0; n<nodes(grid); ++n) {
 	 				float i=grid(n);
 	 				if (i>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1) continue;
@@ -137,8 +139,8 @@ int main(int argc, char* argv[])
 			} else if (double_type) {
 	  		MMSP::grid<2,double> grid(argv[1]);
 	  		assert(theSize==nodes(grid));
-			  float max=std::numeric_limits<double>::min();
-			  float min=std::numeric_limits<double>::max();
+			  float max=1.0; //std::numeric_limits<double>::min();
+			  float min=0.0; //std::numeric_limits<double>::max();
 	 			for (int n=0; n<nodes(grid); ++n) {
 	 				double i=grid(n);
 	 				if (i>pow(MMSP::g1(grid,0)-MMSP::g0(grid,0),dim)-1) continue;
@@ -159,75 +161,47 @@ int main(int argc, char* argv[])
     		exit(-1);
     	}
   } else if (vector_type) {
-  	if (fields>2) {
+	if (float_type) {
   		int field=0;
-		  if (float_type) {
-	  		MMSP::grid<2,MMSP::vector<float> > grid(argv[1]);
-	  		assert(theSize==nodes(grid));
-			  float max=std::numeric_limits<float>::min();
-			  float min=std::numeric_limits<float>::max();
-	 			for (int n=0; n<nodes(grid); ++n) {
- 					if (grid(n)[field]>max) max=grid(n)[field];
-			 		else if (grid(n)[field]<min) min=grid(n)[field];
-			 	}
-			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"]."<<std::endl;
-		 		for (int n=0; n<nodes(grid); ++n)
-					buffer[n] = 255*(grid(n)[field]-min)/(max-min);
-			} else if (double_type) {
-	  		MMSP::grid<2,MMSP::vector<double> > grid(argv[1]);
-	  		assert(theSize==nodes(grid));
-			  float max=std::numeric_limits<double>::min();
-			  float min=std::numeric_limits<double>::max();
-	 			for (int n=0; n<nodes(grid); ++n) {
- 					if (grid(n)[field]>max) max=grid(n)[field];
-			 		else if (grid(n)[field]<min) min=grid(n)[field];
-			 	}
-			 	std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"]."<<std::endl;
-		 		int n=0;
-		 		for (int y=x0[1]; y<x1[1]; y++) {
-			 		for (int x=x0[0]; x<x1[0]; x++) {
-						buffer[n] = 255*(grid[x][y][field]-min)/(max-min);
-						n++;
-					}
-				}
-		  } else {
-		    std::cerr<<"File input error: png from "<<type<<" not implemented."<<std::endl;
-    		delete [] buffer; buffer=NULL;
-    		exit(-1);
-    	}
-		} else {
-		  if (float_type) {
-	  		MMSP::grid<2,MMSP::vector<float> > grid(argv[1]);
-	  		assert(theSize==nodes(grid));
-		 		int n=0;
-		 		for (int y=x0[1]; y<x1[1]; y++) {
-			 		for (int x=x0[0]; x<x1[0]; x++) {
-			  		float sum=0;
-  					for (int i=0; i<fields; ++i)
-			  			sum += grid[x][y][i]*grid[x][y][i];
-						buffer[n] = 255*sqrt(sum);
-						n++;
-					}
-				}
- 			} else if (double_type) {
-	  		MMSP::grid<2,MMSP::vector<double> > grid(argv[1]);
-	  		assert(theSize==nodes(grid));
-		 		int n=0;
-		 		for (int y=x0[1]; y<x1[1]; y++) {
-			 		for (int x=x0[0]; x<x1[0]; x++) {
-				  	float sum=0;
-  					for (int i=0; i<fields; ++i)
-			  			sum += grid[x][y][i]*grid[x][y][i];
-						buffer[n] = 255*sqrt(sum);
-						n++;
-					}
-				}
-		  } else {
-		    std::cerr<<"File input error: png from "<<type<<" not implemented."<<std::endl;
-    		delete [] buffer; buffer=NULL;
-    		exit(-1);
-    	}
+		MMSP::grid<2,MMSP::vector<float> > grid(argv[1]);
+  		assert(theSize==nodes(grid));
+		float max=1.0; //std::numeric_limits<float>::min();
+		float min=0.0; //std::numeric_limits<float>::max();
+ 		for (int n=0; n<nodes(grid); ++n) {
+			if (grid(n)[field]>max) max=grid(n)[field];
+		 		else if (grid(n)[field]<min) min=grid(n)[field];
 		}
+		std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"]."<<std::endl;
+		int n=0;
+		for (int y=x0[1]; y<x1[1]; y++) {
+			for (int x=x0[0]; x<x1[0]; x++) {
+				buffer[n] = 255*(grid[x][y][field]-min)/(max-min);
+				n++;
+			}
+		}
+	} else if (double_type) {
+  		int field=0;
+  		MMSP::grid<2,MMSP::vector<double> > grid(argv[1]);
+  		assert(theSize==nodes(grid));
+		double max=1.0; //std::numeric_limits<double>::min();
+		double min=0.0; //std::numeric_limits<double>::max();
+ 		for (int n=0; n<nodes(grid); ++n) {
+			if (grid(n)[field]>max) max=grid(n)[field];
+		 		else if (grid(n)[field]<min) min=grid(n)[field];
+		}
+		std::cout<<"Rescaling for φ in ["<<min<<", "<<max<<"]."<<std::endl;
+		int n=0;
+		for (int y=x0[1]; y<x1[1]; y++) {
+			for (int x=x0[0]; x<x1[0]; x++) {
+				buffer[n] = 255*(grid[x][y][field]-min)/(max-min);
+				n++;
+			}
+		}
+	} else {
+	    std::cerr<<"File input error: png from "<<type<<" not implemented."<<std::endl;
+   		delete [] buffer; buffer=NULL;
+   		exit(-1);
+   	}
   } else if (sparse_type) {
 	  if (float_type) {
 		 	std::string altfile(argv[2]);
@@ -236,8 +210,8 @@ int main(int argc, char* argv[])
 	  	// Image |{φ}|
 	  	MMSP::grid<2,MMSP::sparse<float> > grid(argv[1]);
   		assert(theSize==nodes(grid));
-		  float max=std::numeric_limits<float>::min();
-		  float min=std::numeric_limits<float>::max();
+		  float max=1.0; //std::numeric_limits<float>::min();
+		  float min=0.0; //std::numeric_limits<float>::max();
  			for (int n=0; n<nodes(grid); ++n) {
   			int nonzero = MMSP::length(grid(n));
 		  	float sum=0;
@@ -263,8 +237,8 @@ int main(int argc, char* argv[])
 	  	// Image |{φ}|
 	  	MMSP::grid<2,MMSP::sparse<double> > grid(argv[1]);
   		assert(theSize==nodes(grid));
-		  float max=std::numeric_limits<double>::min();
-		  float min=std::numeric_limits<double>::max();
+		  float max=1.0; //std::numeric_limits<double>::min();
+		  float min=0.0; //std::numeric_limits<double>::max();
  			for (int n=0; n<nodes(grid); ++n) {
   			int nonzero = MMSP::length(grid(n));
 		  	float sum=0;
