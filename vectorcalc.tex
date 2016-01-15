@@ -1,0 +1,113 @@
+\documentclass[11pt]{article}
+\usepackage[utf8x]{inputenc}
+\usepackage[paperwidth=11in,paperheight=8.5in,margin=0.5in]{geometry}
+\usepackage{amsmath,amssymb,multicol,multirow,esint}
+\pagestyle{empty}
+\begin{document}
+\begin{center}
+\Large{\bf Summary of Vector Calculus Identities}\\
+\footnotesize{\texttt{https://en.wikipedia.org/wiki/Vector\_calculus\_identities}}
+\end{center}
+\begin{multicols}{2}
+\subsection*{Addition and multiplication}
+\begin{align*}
+ \mathbf{A}+\mathbf{B}&=\mathbf{B}+\mathbf{A} \\
+ \mathbf{A}\cdot\mathbf{B}&=\mathbf{B}\cdot\mathbf{A} \\
+ \mathbf{A}\times\mathbf{B}&=\mathbf{-B}\times\mathbf{A}\\ 
+ \left(\mathbf{A}+\mathbf{B}\right)\cdot\mathbf{C}&=\mathbf{A}\cdot\mathbf{C}+\mathbf{B}\cdot\mathbf{C} \\
+ \left(\mathbf{A}+\mathbf{B}\right)\times\mathbf{C}&=\mathbf{A}\times\mathbf{C}+\mathbf{B}\times\mathbf{C}\\ 
+ \left(\mathbf{A}\times\mathbf{B}\right)\cdot\left(\mathbf{C}\times\mathbf{D}\right)&=\left(\mathbf{A}\cdot\mathbf{C}\right)\left(\mathbf{B}\cdot\mathbf{D}\right)-\left(\mathbf{B}\cdot\mathbf{C}\right)\left(\mathbf{A}\cdot\mathbf{D}\right) \\
+\left(\mathbf{A}\cdot\left(\mathbf{B}\times\mathbf{C}\right)\right)\mathbf{D}&=\left(\mathbf{A}\cdot\mathbf{D}\right)\left(\mathbf{B}\times\mathbf{C}\right)+\left(\mathbf{B}\cdot\mathbf{D}\right)\left(\mathbf{C}\times\mathbf{A}\right)+\left(\mathbf{C}\cdot\mathbf{D}\right)\left(\mathbf{A}\times\mathbf{B}\right) \\
+\left(\mathbf{A}\times\mathbf{B}\right)\times\left(\mathbf{C}\times\mathbf{D}\right)
+&=\left(\mathbf{A}\cdot\left(\mathbf{B}\times\mathbf{D}\right)\right)\mathbf{C}-\left(\mathbf{A}\cdot\left(\mathbf{B}\times\mathbf{C}\right)\right)\mathbf{D}
+\end{align*}
+\textbf{Scalar triple product}
+\[\mathbf{A}\cdot\left(\mathbf{B}\times\mathbf{C}\right)=\mathbf{B}\cdot\left(\mathbf{C}\times\mathbf{A}\right)=\mathbf{C}\cdot\left(\mathbf{A}\times\mathbf{B}\right) \] %(scalar triple product)
+\textbf{Vector triple product}
+\begin{align*}
+\mathbf{A}\times\left(\mathbf{B}\times\mathbf{C}\right)&=\left(\mathbf{A}\cdot\mathbf{C}\right)\mathbf{B}-\left(\mathbf{A}\cdot\mathbf{B}\right)\mathbf{C} \\ % (vector triple product)
+\left(\mathbf{A}\times\mathbf{B}\right)\times\mathbf{C}&=\left(\mathbf{A}\cdot\mathbf{C}\right)\mathbf{B}-\left(\mathbf{B}\cdot\mathbf{C}\right)\mathbf{A} % (vector triple product)
+\end{align*}
+
+\subsection*{Differentiation}
+\subsubsection*{Gradient}
+\begin{align*}
+ \nabla(\psi+\phi)&=\nabla\psi+\nabla\phi \\
+ \nabla (\psi \, \phi) &= \phi \,\nabla \psi  + \psi \,\nabla \phi \\
+ \nabla\left(\mathbf{A}\cdot\mathbf{B}\right)&=\left(\mathbf{A}\cdot\nabla\right)\mathbf{B}+\left(\mathbf{B}\cdot\nabla\right)\mathbf{A}+\mathbf{A}\times\left(\nabla\times\mathbf{B}\right)+\mathbf{B}\times\left(\nabla\times\mathbf{A}\right) 
+\end{align*}
+
+\subsubsection*{Divergence}
+\begin{align*}
+ \nabla\cdot(\mathbf{A}+\mathbf{B})&=\nabla\cdot\mathbf{A}+\nabla\cdot\mathbf{B} \\
+ \nabla\cdot\left(\psi\mathbf{A}\right)&=\psi\nabla\cdot\mathbf{A}+\mathbf{A}\cdot\nabla \psi \\
+ \nabla\cdot\left(\mathbf{A}\times\mathbf{B}\right)&=\mathbf{B}\cdot (\nabla\times\mathbf{A})-\mathbf{A}\cdot(\nabla\times\mathbf{B}) 
+\end{align*}
+
+\subsubsection*{Curl}
+\begin{align*}
+ \nabla\times(\mathbf{A}+\mathbf{B})&=\nabla\times\mathbf{A}+\nabla\times\mathbf{B} \\
+ \nabla\times\left(\psi\mathbf{A}\right)&=\psi\nabla\times\mathbf{A}+\nabla\psi\times\mathbf{A}\\
+ \nabla\times\left(\mathbf{A}\times\mathbf{B}\right)&=\mathbf{A}\left(\nabla\cdot\mathbf{B}\right)-\mathbf{B}\left(\nabla\cdot\mathbf{A}\right)+\left(\mathbf{B}\cdot\nabla\right)\mathbf{A}-\left(\mathbf{A}\cdot\nabla\right)\mathbf{B}
+\end{align*}
+
+\subsection*{Second derivatives}
+
+\begin{align*}
+ \nabla\cdot(\nabla\times\mathbf{A})&=0 \\
+ \nabla\times(\nabla\psi)&= \mathbf{0} \\
+ \nabla\cdot(\phi\nabla\psi)&=\phi\nabla^{2}\psi + \nabla\phi\cdot\nabla\psi \\
+ \psi\nabla^2\phi-\phi\nabla^2\psi&= \nabla\cdot\left(\psi\nabla\phi-\phi\nabla\psi\right)\\
+ \nabla^2(\phi\psi)&=\phi\nabla^2\psi+2\nabla\phi\cdot\nabla\psi+\psi\nabla^2\phi\\
+ \nabla^2(\psi\mathbf{A})&=\mathbf{A}\nabla^2\psi+2(\nabla\psi\cdot\nabla)\mathbf{A}+\psi\nabla^2\mathbf{A}\\
+\end{align*}
+\textbf{Scalar Laplacian}
+\[\nabla\cdot(\nabla\psi)=\nabla^{2}\psi \] % (scalar Laplacian)
+\textbf{Vector Laplacian}
+\[\nabla\left(\nabla\cdot\mathbf{A}\right)-\nabla\times\left(\nabla\times\mathbf{A}\right)=\nabla^{2}\mathbf{A} \] %  (vector Laplacian)
+\textbf{Green's vector identity}
+\[\nabla^2(\mathbf{A}\cdot\mathbf{B})= \mathbf{A}\cdot\nabla^2\mathbf{B} - \mathbf{B}\cdot\nabla^2\mathbf{A} + 2\nabla\cdot((\mathbf{B}\cdot\nabla)\mathbf{A} + \mathbf{B}\times\nabla\times\mathbf{A}) \]%{Green's vector identity}
+
+\subsection*{Third derivatives}
+\begin{align*}
+\nabla^{2}(\nabla\psi) &= \nabla(\nabla\cdot(\nabla\psi)) = \nabla(\nabla^{2}\psi)\\
+ \nabla^{2}(\nabla\cdot\mathbf{A}) &= \nabla\cdot(\nabla(\nabla\cdot\mathbf{A})) =\nabla\cdot(\nabla^{2}\mathbf{A})\\
+ \nabla^{2}(\nabla\times\mathbf{A}) &= -\nabla\times(\nabla\times(\nabla\times\mathbf{A})) = \nabla\times(\nabla^{2}\mathbf{A})
+\end{align*}
+\end{multicols}
+
+\newpage
+\subsection*{Integrals}
+\begin{tabular}{lcl}
+ %\emph{Label} &	\emph{Expression} & \emph{Description}\\
+	& \multirow{3}{3.25in}{$\displaystyle\int_{L[\mathbf p \to \mathbf q] \subset \mathbb R^n} \nabla\varphi\cdot d\mathbf{r} = \varphi\left(\mathbf{q}\right)-\varphi\left(\mathbf{p}\right)$} 
+  & \multirow{3}{4.5in}{\small{The line integral through a gradient (vector) field equals the difference in its scalar field at the endpoints of the curve $L$.}}\\
+Gradient theorem  & & \\
+  & & \\
+	& \multirow{3}{3.25in}{$\displaystyle\int\!\!\!\!\int_{A\,\subset\mathbb R^2} \left  (\frac{\partial M}{\partial x} - \frac{\partial L}{\partial y}\right)\, d\mathbf{A}=\oint_{\partial A} \left ( L\, dx + M\, dy \right ) $} 
+  & \multirow{3}{4.5in}{\small{The integral of the scalar curl of a vector field over some region in the plane equals the line integral of the vector field over the closed curve bounding the region oriented in the counterclockwise direction.}}\\
+Green's theorem   & & \\
+  & & \\
+	& \multirow{3}{3.25in}{$\displaystyle\int\!\!\!\!\int_{\Sigma\,\subset\mathbb R^3} \nabla \times \mathbf{F} \cdot d\mathbf{\Sigma} = \oint_{\partial\Sigma} \mathbf{F} \cdot d \mathbf{r} $}
+  & \multirow{3}{4.5in}{\small{The integral of the curl of a vector field over a surface in $\mathbb R^3$ equals the line integral of the vector field over the closed curve bounding the surface.}}\\
+Stokes' theorem   & & \\
+  & & \\
+	& \multirow{3}{3.25in}{$\displaystyle\int\!\!\!\!\int\!\!\!\!\int_{V\,\subset\mathbb R^3}\left(\nabla\cdot\mathbf{F}\right)d\mathbf{V}=\oiint_{\partial V}\mathbf F\;\cdot{d}\mathbf S $} 
+  & \multirow{3}{4.5in}{\small{The integral of the divergence of a vector field over some solid equals the integral of the flux through the closed surface bounding the solid.}}\\
+Divergence theorem  & & \\
+ & &
+\end{tabular}
+
+\subsection*{Surface-Volume Integrals}
+In the following surface-volume integral theorems, $V$ denotes a 3D volume with a corresponding 2D boundary $S = \partial V$ (a closed surface).
+\begin{align*}
+\oiint_{\partial V}\mathbf{A}\cdot d\mathbf{S}&=\iiint_V \left(\nabla \cdot \mathbf{A}\right)dV &\mathrm{Divergence\ theorem}\\
+\oiint_{\partial V}\psi d \mathbf{S} &= \iiint_V \nabla \psi dV & \\
+\oiint_{\partial V}\left(\hat{\mathbf{n}}\times\mathbf{A}\right)dS&=\iiint _{V}\left(\nabla\times\mathbf{A}\right)dV  \\
+\oiint_{\partial V}\psi\left(\nabla\varphi\cdot\hat{\mathbf{n}}\right)dS &= \iiint _{V}\left(\psi\nabla^{2}\varphi+\nabla\varphi\cdot\nabla\psi\right)dV &\mathrm{Green's\ first\ identity}\\
+\oiint_{\partial V}\left[\left(\psi\nabla\varphi-\varphi\nabla\psi\right)\cdot\hat{\mathbf{n}}\right]dS&=\,\!\oiint_{\partial V}\left[\psi\frac{\partial\varphi}{\partial n}-\varphi\frac{\partial\psi}{\partial n}\right]dS \displaystyle=\iiint_{V}\left(\psi\nabla^{2}\varphi-\varphi\nabla^{2}\psi\right)dV &\mathrm{Green's\ second\ identity}
+\end{align*}
+
+\subsection*{Taylor Series Expansion}
+\[f(x)|_{x=a}\approx f(a)+\frac {x-a}{1!}f'(a)+ \frac{(x-a)^2}{2!}f''(a) +\frac{(x-a)^3}{3!}f'''(a) + \cdots = \sum_{n=0} ^ {\infty} \frac {(x-a)^{n}}{n!} \, f^{(n)}(a)\]
+\end{document}
