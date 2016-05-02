@@ -1,3 +1,6 @@
 [submodule "Hackathon3/elasticity"]
 	path = Hackathon3/elasticity
 	url = github:guyer/elasticity.git
+[submodule "Hackathon2/elasticity"]
+	path = Hackathon2/elasticity
+	url = github:guyer/elasticity.git
