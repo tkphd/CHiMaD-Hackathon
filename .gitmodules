@@ -1,0 +1,3 @@
+[submodule "Hackathon3/elasticity"]
+	path = Hackathon3/elasticity
+	url = github:guyer/elasticity.git
