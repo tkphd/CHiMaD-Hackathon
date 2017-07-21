@@ -17,6 +17,16 @@
 #include<cfloat>
 #include"stokes.hpp"
 
+// Model parameters
+const double rho = 100.;
+const double mu = 1.;
+vector<double> g(2, 0.); g[1] = -0.001;
+
+inline double profile(double y)
+{
+	return 0.009 - 0.001 * std::pow(y - 3.0, 2);
+}
+
 // Numerical constants
 double tolerance = 1.0e-12;		// Choose wisely. 1e-10 is the minimum toloerance for which mass is conserved.
 								// Tighter tolerance is better, but increases runtime.
@@ -52,28 +62,6 @@ double expansive_dfdc(const T& C)
 namespace MMSP
 {
 
-// Discrete Laplacian operator for a specific field
-template<int dim, typename T>
-double field_laplacian(const grid<dim,vector<T> >& GRID, const vector<int>& x, const int field)
-{
-	double laplacian = 0.0;
-	vector<int> s = x;
-
-	const T& y = GRID(x)[field];
-
-	for (int i=0; i<dim; i++) {
-		s[i] += 1;
-		const T& yh = GRID(s)[field];
-		s[i] -= 2;
-		const T& yl = GRID(s)[field];
-		s[i] += 1;
-
-		double weight = 1.0 / pow(dx(GRID, i),2.0);
-		laplacian += weight * (yh - 2.0 * y + yl);
-	}
-	return laplacian;
-}
-
 // Discrete Laplacian operator missing the central value, for implicit source terms
 template<int dim, typename T>
 double fringe_laplacian(const grid<dim,vector<T> >& GRID, const vector<int>& x, const int field)
@@ -97,18 +85,38 @@ double fringe_laplacian(const grid<dim,vector<T> >& GRID, const vector<int>& x, 
 void generate(int dim, const char* filename)
 {
 	if (dim==2) {
-		GRID2D initGrid(2,0,2*edge,0,edge); // field 0 is c, field 1 is mu
+		// Mesh size
+		double Lx = 30;
+		double Ly = 6;
+
+		// Mesh resolution
+		double h = 1.0;
+
+		GRID2D initGrid(3,0,std::floor(Lx/h),0,std::floor(Ly/h)); // field 0 is c, field 1 is mu
 		for (int d=0; d<dim; d++)
-			dx(initGrid,d) = deltaX;
+			dx(initGrid,d) = h;
 
-		for (int n=0; n<nodes(initGrid); n++)
-			initGrid(n)[0] = C0 + 0.25*(double(rand())/RAND_MAX) - 0.125; // produces noise with amplitude 0.125 about C=C0
-
-		ghostswap(initGrid); // otherwise, parallel jobs have a "window frame" artifact
-
+		vector<double> blank(dim+1, 0.0);
+		bool touchedCorner = false;
 		for (int n=0; n<nodes(initGrid); n++) {
 			vector<int> x = position(initGrid,n);
-			initGrid(n)[1] = full_dfdc(initGrid(n)[0]) - K*field_laplacian(initGrid, x, 0);
+			initGrid(n) = blank;
+
+			// Set pressure: interpolate between inlet at 1 and outlet at zero, so grad(p) is not zero
+			initGrid(n)[dim] = 1.0 - double(x[0] - g0(initGrid,0))/(g1(initGrid,0) - g0(initGrid,0));
+
+			if (x[0] < g1(initGrid, 0)-1 && x[1] > g0(initGrid, 1) && x[1] < g1(initGrid, 1)-1) {
+				// point is within the domain
+				double v0 = profile(dx(initGrid,1) * x[1]);
+				// interpolate between inlet at v0 and outlet at, initially, zero
+				// (other choices of initial condition may be more reasonable)
+				initGrid(n)[0] = v0 * (1.0 - double(x[0] - g0(initGrid,0))/(g1(initGrid,0) - g0(initGrid,0)));
+
+			}
+		}
+
+		for (int n=0; n<nodes(initGrid); n++) {
+			initGrid(n)[1] = full_dfdc(initGrid(n)[0]) - K * laplacian(initGrid, x, 0);
 		}
 
 		output(initGrid,filename);
@@ -228,8 +236,8 @@ bool update(grid<dim,vector<T> >& oldGrid, int steps)
 				#pragma omp parallel for schedule(dynamic)
 				for (int n=0; n<nodes(oldGrid); n++) {
 					vector<int> x = position(oldGrid,n);
-					T lapC = field_laplacian(newGrid, x, 0);
-					T lapU = field_laplacian(newGrid, x, 1);
+					T lapC = laplacian(newGrid, x, 0);
+					T lapU = laplacian(newGrid, x, 1);
 
 					T cOld = oldGrid(n)[0];
 					T cNew = newGrid(n)[0];
