@@ -2,6 +2,7 @@
 *.aux
 cahn-hilliard
 data
+electrochem
 img
 *.log
 *.directory
