@@ -13,10 +13,10 @@ pcompiler = mpicxx
 pflags = $(flags) -include mpi.h
 
 # the program
-electrochem: electrochem.cpp
+electrochem: electrochem.cpp electrochem.hpp energy.hpp
 	$(compiler) $(flags) $< -o $@ $(links)
 
-parallel: electrochem.cpp
+parallel: electrochem.cpp electrochem.hpp energy.hpp
 	$(pcompiler) $(pflags) $< -o $@ $(links)
 
 clean:

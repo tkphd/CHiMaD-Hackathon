@@ -6,6 +6,10 @@
 #define CAHNHILLIARD_ENERGY
 #include<cmath>
 
+#define cid 0
+#define uid 1
+#define pid 2
+
 // Composition parameters
 const double Ca = 0.30; // alpha composition
 const double Cb = 0.70; // beta composition
@@ -27,7 +31,7 @@ const double deltaX = 1.0;
 const double dt = std::pow(deltaX, 4)*CFL/(24.0*M*kappa);
 
 // Gauss-Seidel parameters
-double tolerance = 1.0e-14;		// Choose wisely. 1e-10 is the minimum toloerance for which mass is conserved.
+double tolerance = 1.0e-12;		// Choose wisely. 1e-10 is the minimum toloerance for which mass is conserved.
 unsigned int residual_step = 5;	// number of iterations between residual computations
 unsigned int max_iter = 10000;	// don't let the solver stagnate
 double omega = 1.20;			// relaxation parameter for SOR. omega=1 is stock Gauss-Seidel.
@@ -76,21 +80,15 @@ double dfelecdc(const T& P)
 }
 
 template<typename T>
-double dfcontractivedc(const T& C)
+double dfcontractivedc(const T& C, const T& Cnew)
 {
-	return rho * C * (4.0 * C*C + 2.0 * (Ca*Ca + 4.0*Ca*Cb + Cb*Cb)) ;
-}
-
-template<typename T>
-double linearcoeff(const T& C)
-{
-	return rho * (4.0 * C*C + 2.0 * (Ca*Ca + 4.0*Ca*Cb + Cb*Cb));
+	return 2.0 * rho * Cnew * (2.0 * C*C + Ca*Ca + 4.0*Ca*Cb + Cb*Cb) ;
 }
 
 template<typename T>
 double dfexpansivedc(const T& C, const T& P)
 {
-	return -2.0 * rho * (3.0 * C*C * (Ca + Cb) + Ca*Cb * (Ca + Cb)) + 2.0 * dfelecdc(P);
+	return -2.0 * rho * (3.0 * C*C * (Ca + Cb) - Ca * Cb * (Ca + Cb)) + 2.0 * dfelecdc(P);
 }
 
 // Discrete Laplacian operator missing the central value, for implicit source terms
@@ -112,6 +110,5 @@ double fringe_laplacian(const MMSP::grid<dim,MMSP::vector<T> >& GRID, const MMSP
 	}
 	return laplacian;
 }
-
 
 #endif

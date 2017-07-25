@@ -31,8 +31,8 @@ double Helmholtz(const grid<dim,vector<T> >& GRID)
 		vector<int> x = position(GRID, n);
 		vector<double> gradc = gradient(GRID, x, 0);
 
-		fchem += chemenergy(GRID(n)[0]);
-		felec += elecenergy(GRID(n)[0], GRID(n)[1]);
+		fchem += chemenergy(GRID(n)[cid]);
+		felec += elecenergy(GRID(n)[cid], GRID(n)[pid]);
 		fgrad += gradc * gradc;
 	}
 
@@ -47,7 +47,7 @@ double Helmholtz(const grid<dim,vector<T> >& GRID)
 }
 
 template<int dim,typename T>
-unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,vector<T> >& newGrid)
+unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, const double timestep, grid<dim,vector<T> >& newGrid)
 {
 	double gridSize = static_cast<double>(nodes(oldGrid));
 	#ifdef MPI_VERSION
@@ -84,39 +84,45 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			#pragma omp parallel for schedule(dynamic)
 			for (int n=0; n<nodes(oldGrid); n++) {
 				vector<int> x = position(oldGrid,n);
+
+				// Determine tile color
 				int x_sum=0;
 				for (int d=0; d<dim; d++)
 					x_sum += x[d];
 				if (x_sum%2 == color)
 					continue;
 
-				const T& cOld = oldGrid(n)[0];
-				const T& cGuess = newGrid(n)[0]; // value from last "guess" iteration
-				const T& uGuess = newGrid(n)[1];
-				const T& pGuess = newGrid(n)[2];
+				const T& cOld = oldGrid(n)[cid];
+				const T& cGuess = newGrid(n)[cid]; // value from last "guess" iteration
+				const T& uGuess = newGrid(n)[uid];
+				T pGuess = newGrid(n)[pid];
+
+				if (x[0] == g1(oldGrid, 0) - 1)
+					pGuess = std::sin(dx(oldGrid, 1)/7.0  * x[1]);
+				else if (x[0] == g0(oldGrid, 0))
+					pGuess = 0.0;
 
 				// A is defined by the last guess, stored in newGrid(n). It is a 3x3 matrix.
-				const double A12 = lapWeight * dt * M;
+				const double A12 = lapWeight * timestep * M;
 
-				const double A21 = -kappa * lapWeight + linearcoeff(cGuess);
+				const double A21 = -kappa * lapWeight - dfcontractivedc(cGuess, 1.0);
 
 				const double A31 = k / epsilon;
 				const double A33 = -lapWeight;
 
 				// B is defined by the last value, stored in oldGrid(n), and the last guess, stored in newGrid(n). It is a 3x1 column.
-				const double B1 = cOld + dt * M * fringe_laplacian(newGrid, x, 1);
-				const double B2 = -kappa * fringe_laplacian(newGrid, x, 0) + dfexpansivedc(cGuess, pGuess);
-				const double B3 = -fringe_laplacian(newGrid, x, 2);
+				const double B1 = cOld + timestep * M * fringe_laplacian(newGrid, x, uid);
+				const double B2 = dfexpansivedc(cGuess, pGuess) - kappa * fringe_laplacian(newGrid, x, cid);
+				const double B3 = -fringe_laplacian(newGrid, x, pid);
 
 				// Solve the iteration system AX=B using Cramer's rule
 				const double detA = A33 - A12*A21*A33;
 
 				const double detA1 = B1*A33 - A12*B2*A33;
-				const T cNew = detA1 / detA;
+				const T cNew = (std::fabs(detA) > tolerance) ? detA1 / detA : 0.0;
 
 				const double detA2 = B2*A33 - B1*A21*A33;
-				const T uNew = detA2 / detA;
-
+				const T uNew = (std::fabs(detA) > tolerance) ? detA2 / detA : 0.0;
 
 				T pNew = 0.0;
 
@@ -126,13 +132,13 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 					pNew = 0.0;
 				else {
 					const double detA3 = B3 + A12*B2*A31 - B1*A31 - A12*A21*B3;
-					pNew = detA3 / detA;
+					pNew = (std::fabs(detA) > tolerance) ? detA3 / detA : 0.0;
 				}
 
 				// (Don't) Apply relaxation
-				newGrid(n)[0] = omega*cNew + (1.0 - omega)*cGuess;
-				newGrid(n)[1] = omega*uNew + (1.0 - omega)*uGuess;
-				newGrid(n)[2] = omega*pNew + (1.0 - omega)*pGuess;
+				newGrid(n)[cid] = omega*cNew + (1.0 - omega)*cGuess;
+				newGrid(n)[uid] = omega*uNew + (1.0 - omega)*uGuess;
+				newGrid(n)[pid] = omega*pNew + (1.0 - omega)*pGuess;
 
 			}
 			ghostswap(newGrid);   // fill in the ghost cells; does nothing in serial
@@ -155,18 +161,18 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				vector<int> x = position(oldGrid,n);
 				vector<T> lap = laplacian(newGrid, x);
 
-				const T& cOld = oldGrid(n)[0];
-				const T& cNew = newGrid(n)[0];
-				const T& uNew = newGrid(n)[1];
-				const T& pNew = newGrid(n)[2];
+				const T& cOld = oldGrid(n)[cid];
+				const T& cNew = newGrid(n)[cid];
+				const T& uNew = newGrid(n)[uid];
+				const T& pNew = newGrid(n)[pid];
 
 				// Plug iteration results into original system of equations
 				const double AX1 = cNew;
 				const double AX2 = uNew;
-				const double AX3 = lap[2];
+				const double AX3 = lap[pid];
 
-				const double B1 = cOld + dt * M * lap[1];
-				const double B2 = dfchemdc(cNew) + 2.0*dfelecdc(pNew) - kappa*lap[0];
+				const double B1 = cOld + timestep * M * lap[uid];
+				const double B2 = dfchemdc(cNew) + 2.0*dfelecdc(pNew) - kappa*lap[cid];
 				const double B3 = -k / epsilon * cNew;
 
 				// Compute the Error from parts of the solution
@@ -190,7 +196,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			MPI::COMM_WORLD.Allreduce(&localNormB, &normB, 1, MPI_DOUBLE, MPI_SUM);
 			#endif
 
-			residual = sqrt(residual/normB)/(3.0*gridSize);
+			residual = (std::fabs(normB) > tolerance)? sqrt(residual/normB)/(3.0*gridSize) : 0.0;
 		}
 	}
 
@@ -205,14 +211,14 @@ void generate(int dim, const char* filename)
 	#endif
 
 	if (dim != 2 && rank == 0) {
-		std::cerr<<"ERROR: CHiMaD problems are 2-D, only!"<<std::endl;
+		std::cerr << "ERROR: CHiMaD problems are 2-D, only!" << std::endl;
 		std::exit(-1);
 	}
 
 	/*	Grid contains three fields:
 		0: composition
 		1: chemical potential
-		2: charge                  */
+		2: electrostatic potential  */
 
 	if (dim==2) {
 		GRID2D initGrid(3,0,100,0,100);
@@ -230,36 +236,42 @@ void generate(int dim, const char* filename)
 		for (int n=0; n<nodes(initGrid); n++) {
 			vector<int> x = position(initGrid, n);
 			// composition field
-			initGrid(n)[0] = cheminit(dx(initGrid,0)*x[0], dx(initGrid,1)*x[1]);
-
-			// potential field
-			initGrid(n)[1] = 0.0;
+			initGrid(n)[cid] = cheminit(dx(initGrid,0) * x[0], dx(initGrid,1) * x[1]);
 
 			// charge field
 			if (x[0] == g1(initGrid, 0) - 1)
-				initGrid(n)[2] = std::sin(dx(initGrid, 1)/7.0  * x[1]);
+				initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]);
 			else
-				initGrid(n)[2] = 0.0;
+				initGrid(n)[pid] = 0.0;
 		}
 
-		unsigned int iter = RedBlackGaussSeidel(initGrid, initGrid);
+		ghostswap(initGrid);
 
-		if (iter >= max_iter) {
-			if (rank==0)
-				std::cerr << "Solver stagnated. Aborting." << std::endl;
-			MMSP::Abort(-1);
-		} else {
-			if (rank==0)
-				std::cout << "Converged in " << iter << " iterations." << std::endl;
+		for (int n=0; n<nodes(initGrid); n++) {
+			// chemical potential field
+			vector<int> x = position(initGrid, n);
+			const double& c = initGrid(n)[cid];
+			const double& p = initGrid(n)[pid];
+			initGrid(n)[uid] = dfchemdc(c) + 2.0 * dfelecdc(p) - kappa * laplacian(initGrid, x, cid);
 		}
 
 		output(initGrid,filename);
+
+		double F = Helmholtz(initGrid);
+
+		if (rank == 0)
+			std::cout << F << std::endl;
 	}
 }
 
 template <int dim, typename T>
 void update(grid<dim,vector<T> >& oldGrid, int steps)
 {
+	/*	Grid contains three fields:
+		0: composition
+		1: chemical potential
+		2: electrostatic potential  */
+
 	int rank=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
@@ -288,8 +300,14 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 			print_progress(step, steps);
 
 		ghostswap(oldGrid);
+		ghostswap(newGrid);
 
-		unsigned int iter = RedBlackGaussSeidel(oldGrid, newGrid);
+		unsigned int iter = RedBlackGaussSeidel(oldGrid, dt, newGrid);
+
+		#ifdef MPI_VERSION
+		unsigned int myit(iter);
+		MPI::COMM_WORLD.Allreduce(&myit, &iter, 1, MPI_UNSIGNED, MPI_MAX);
+		#endif
 
 		if (iter >= max_iter) {
 			if (rank==0)
@@ -297,10 +315,15 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 			MMSP::Abort(-1);
 		}
 
-		swap(oldGrid,newGrid);
+		swap(oldGrid, newGrid);
 	}
 
 	ghostswap(oldGrid);
+
+	double F = Helmholtz(oldGrid);
+
+	if (rank == 0)
+		std::cout << F << std::endl;
 }
 
 } // MMSP
