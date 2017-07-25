@@ -42,7 +42,8 @@ double cheminit(const double& x, const double& y)
 	                 + std::cos(0.025*x - 0.15*y) * std::cos(0.07*x - 0.02*y));
 }
 
-double chemenergy(const double& C)
+template<typename T>
+double chemenergy(const T& C)
 {
 	// Equation 6
 	const double A = C-Ca;
@@ -50,7 +51,8 @@ double chemenergy(const double& C)
 	return rho * A*A * B*B;
 }
 
-double elecenergy(const double& C, const double& P)
+template<typename T>
+double elecenergy(const T& C, const T& P)
 {
 	// Equation 7
 	return 0.5 * k * C * P;
@@ -58,7 +60,8 @@ double elecenergy(const double& C, const double& P)
 
 
 // Energy derivatives
-double dfchemdc(const double& C)
+template<typename T>
+double dfchemdc(const T& C)
 {
 	// d(chemenergy)/dc
 	const double A = C-Ca;
@@ -66,11 +69,29 @@ double dfchemdc(const double& C)
 	return 2.0 * rho * A * B * (Ca + Cb - 2.0 * C);
 }
 
-double dfelecdc(const double& P)
+template<typename T>
+double dfelecdc(const T& P)
 {
 	return 0.5 * k * P;
 }
 
+template<typename T>
+double dfcontractivedc(const T& C)
+{
+	return rho * C * (4.0 * C*C + 2.0 * (Ca*Ca + 4.0*Ca*Cb + Cb*Cb)) ;
+}
+
+template<typename T>
+double linearcoeff(const T& C)
+{
+	return rho * (4.0 * C*C + 2.0 * (Ca*Ca + 4.0*Ca*Cb + Cb*Cb));
+}
+
+template<typename T>
+double dfexpansivedc(const T& C, const T& P)
+{
+	return -2.0 * rho * (3.0 * C*C * (Ca + Cb) + Ca*Cb * (Ca + Cb)) + 2.0 * dfelecdc(P);
+}
 
 // Discrete Laplacian operator missing the central value, for implicit source terms
 template<int dim, typename T>
