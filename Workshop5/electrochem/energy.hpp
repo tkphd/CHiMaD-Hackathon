@@ -82,13 +82,14 @@ double dfelecdc(const T& P)
 template<typename T>
 double dfcontractivedc(const T& C, const T& Cnew)
 {
-	return 2.0 * rho * Cnew * (2.0 * C*C + Ca*Ca + 4.0*Ca*Cb + Cb*Cb) ;
+	double nonlinearCoeff = 2.0 * rho * (2.0 * C*C + Ca*Ca + 4.0*Ca*Cb + Cb*Cb);
+	return nonlinearCoeff * Cnew;
 }
 
 template<typename T>
 double dfexpansivedc(const T& C, const T& P)
 {
-	return -2.0 * rho * (3.0 * C*C * (Ca + Cb) - Ca * Cb * (Ca + Cb)) + 2.0 * dfelecdc(P);
+	return -2.0 * rho * (3.0 * (Ca + Cb) * C*C + Ca * Cb * (Ca + Cb)) + 2.0 * dfelecdc(P);
 }
 
 // Discrete Laplacian operator missing the central value, for implicit source terms

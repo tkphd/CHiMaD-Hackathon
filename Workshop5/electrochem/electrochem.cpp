@@ -29,7 +29,7 @@ double Helmholtz(const grid<dim,vector<T> >& GRID)
 
 	for (int n=0; n<nodes(GRID); n++) {
 		vector<int> x = position(GRID, n);
-		vector<double> gradc = gradient(GRID, x, 0);
+		vector<double> gradc = gradient(GRID, x, cid);
 
 		fchem += chemenergy(GRID(n)[cid]);
 		felec += elecenergy(GRID(n)[cid], GRID(n)[pid]);
@@ -47,7 +47,7 @@ double Helmholtz(const grid<dim,vector<T> >& GRID)
 }
 
 template<int dim,typename T>
-unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, const double timestep, grid<dim,vector<T> >& newGrid)
+unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,vector<T> >& newGrid)
 {
 	double gridSize = static_cast<double>(nodes(oldGrid));
 	#ifdef MPI_VERSION
@@ -59,7 +59,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, const doub
 	double lapWeight = 0.0;
 	for (int d=0; d<dim; d++) {
 		dV *= dx(oldGrid,d);
-		lapWeight += 2.0 / std::pow(dx(oldGrid,d),2.0); // dim=2 -> lapWeight = 4/h^2 if dy=dx=h
+		lapWeight += 2.0 / std::pow(dx(oldGrid,d), 2.0); // dim=2 -> lapWeight = 4/h^2 if dy=dx=h
 	}
 
 	double residual = 1.0;
@@ -103,25 +103,25 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, const doub
 					pGuess = 0.0;
 
 				// A is defined by the last guess, stored in newGrid(n). It is a 3x3 matrix.
-				const double A12 = lapWeight * timestep * M;
+				const double a12 = -lapWeight * dt * M;
 
-				const double A21 = -kappa * lapWeight - dfcontractivedc(cGuess, 1.0);
+				const double a21 = -kappa * lapWeight - dfcontractivedc(cGuess, 1.0);
 
-				const double A31 = k / epsilon;
-				const double A33 = -lapWeight;
+				const double a31 = k / epsilon;
+				const double a33 = -lapWeight;
 
 				// B is defined by the last value, stored in oldGrid(n), and the last guess, stored in newGrid(n). It is a 3x1 column.
-				const double B1 = cOld + timestep * M * fringe_laplacian(newGrid, x, uid);
-				const double B2 = dfexpansivedc(cGuess, pGuess) - kappa * fringe_laplacian(newGrid, x, cid);
-				const double B3 = -fringe_laplacian(newGrid, x, pid);
+				const double b1 = cOld + dt * M * fringe_laplacian(newGrid, x, uid);
+				const double b2 = dfexpansivedc(cGuess, pGuess) - kappa * fringe_laplacian(newGrid, x, cid);
+				const double b3 = -fringe_laplacian(newGrid, x, pid);
 
 				// Solve the iteration system AX=B using Cramer's rule
-				const double detA = A33 - A12*A21*A33;
+				const double detA = a33 - a12*a21*a33;
 
-				const double detA1 = B1*A33 - A12*B2*A33;
+				const double detA1 = b1*a33 - a12*b2*a33;
 				const T cNew = (std::fabs(detA) > tolerance) ? detA1 / detA : 0.0;
 
-				const double detA2 = B2*A33 - B1*A21*A33;
+				const double detA2 = b2*a33 - b1*a21*a33;
 				const T uNew = (std::fabs(detA) > tolerance) ? detA2 / detA : 0.0;
 
 				T pNew = 0.0;
@@ -131,7 +131,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, const doub
 				else if (x[0] == g0(oldGrid, 0))
 					pNew = 0.0;
 				else {
-					const double detA3 = B3 + A12*B2*A31 - B1*A31 - A12*A21*B3;
+					const double detA3 = b3 + a12*b2*a31 - b1*a31 - a12*a21*b3;
 					pNew = (std::fabs(detA) > tolerance) ? detA3 / detA : 0.0;
 				}
 
@@ -167,25 +167,25 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, const doub
 				const T& pNew = newGrid(n)[pid];
 
 				// Plug iteration results into original system of equations
-				const double AX1 = cNew;
-				const double AX2 = uNew;
-				const double AX3 = lap[pid];
+				const double Ax1 = cNew;
+				const double Ax2 = uNew;
+				const double Ax3 = lap[pid];
 
-				const double B1 = cOld + timestep * M * lap[uid];
-				const double B2 = dfchemdc(cNew) + 2.0*dfelecdc(pNew) - kappa*lap[cid];
-				const double B3 = -k / epsilon * cNew;
+				const double b1 = cOld + dt * M * lap[uid];
+				const double b2 = dfchemdc(cNew) + 2.0*dfelecdc(pNew) - kappa*lap[cid];
+				const double b3 = -k / epsilon * cNew;
 
 				// Compute the Error from parts of the solution
-				const double R1 = B1 - AX1;
-				const double R2 = B2 - AX2;
-				const double R3 = B3 - AX3;
+				const double r1 = b1 - Ax1;
+				const double r2 = b2 - Ax2;
+				const double r3 = b3 - Ax3;
 
-				const double error = R1*R1 + R2*R2 + R3*R3;
+				const double error = r1*r1 + r2*r2 + r3*r3;
 
 				#pragma omp critical
 				{
 					residual += error;
-					normB += B1*B1 + B2*B2 + B3*B3;
+					normB += b1*b1 + b2*b2 + b3*b3;
 				}
 			}
 
@@ -302,7 +302,7 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 		ghostswap(oldGrid);
 		ghostswap(newGrid);
 
-		unsigned int iter = RedBlackGaussSeidel(oldGrid, dt, newGrid);
+		unsigned int iter = RedBlackGaussSeidel(oldGrid, newGrid);
 
 		#ifdef MPI_VERSION
 		unsigned int myit(iter);
