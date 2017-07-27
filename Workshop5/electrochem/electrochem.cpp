@@ -72,9 +72,15 @@ double fringe_laplacian(const MMSP::grid<dim,MMSP::vector<T> >& GRID, const MMSP
 template<int dim,typename T>
 unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,vector<T> >& newGrid)
 {
+	#ifdef DEBUG
 	int rank=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
+	#endif
+
+	std::ofstream of;
+	if (rank == 0)
+		of.open("iter.log", std::ofstream::out | std::ofstream::app); // new results will be appended
 	#endif
 
 	double gridSize = static_cast<double>(nodes(oldGrid));
@@ -92,12 +98,6 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 
 	double residual = 2.0;
 	unsigned int iter = 0;
-
-	#ifdef DEBUG
-	std::ofstream of;
-	if (rank == 0)
-		of.open("iter.log", std::ofstream::out | std::ofstream::app); // new results will be appended
-	#endif
 
 	while (iter < max_iter && residual > tolerance) {
 		/*  ==== RED-BLACK GAUSS SEIDEL ====
@@ -289,6 +289,9 @@ void generate(int dim, const char* filename)
 				b1(initGrid, d) = Neumann;
 		}
 
+		if (rank == 0)
+			std::cout << "Timestep is " << dt << ". Run " << 1.0 / dt << " per unit time." << std::endl;
+
 		for (int n=0; n<nodes(initGrid); n++) {
 			vector<int> x = position(initGrid, n);
 			// composition field
@@ -314,14 +317,21 @@ void generate(int dim, const char* filename)
 
 		output(initGrid,filename);
 
-		#ifdef DEBUG
 		double F = Helmholtz(initGrid);
-
 		std::ofstream of;
+
+		#ifdef DEBUG
 		if (rank == 0) {
 			of.open("iter.log");
 			of << "iter\tres\tF\n";
 			of << 0 << '\t' << 0 << '\t' << F << '\n';
+			of.close();
+		}
+		#else
+		if (rank == 0) {
+			of.open("energy.log");
+			of << "t\tF\n";
+			of << 0 << '\t' << F << '\n';
 			of.close();
 		}
 		#endif
@@ -339,6 +349,10 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 	int rank=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
+	#endif
+
+	#ifndef DEBUG
+	static double elapsed = 0.0;
 	#endif
 
 	ghostswap(oldGrid);
@@ -382,10 +396,21 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 		}
 
 		swap(oldGrid, newGrid);
-
 		ghostswap(oldGrid);
-
 	}
+
+	#ifndef DEBUG
+	elapsed += dt;
+	const double F = Helmholtz(oldGrid);
+
+	std::ofstream of;
+	if (rank == 0) {
+		of.open("energy.log", std::ofstream::out | std::ofstream::app); // new results will be appended
+		of << "t\tF\n";
+		of << elapsed << '\t' << F << '\n';
+		of.close();
+	}
+	#endif
 
 }
 
