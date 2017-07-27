@@ -26,15 +26,15 @@ const double kappa = 2.0;
 const double M = 5.0;
 
 // Numerical parameters
-const double CFL = 0.25;
+const double CFL = 0.125;
 const double deltaX = 1.0;
 const double dt = std::pow(deltaX, 4)*CFL/(24.0*M*kappa);
 
 // Gauss-Seidel parameters
-double tolerance = 1.0e-12;		// Choose wisely. 1e-10 is the minimum toloerance for which mass is conserved.
-unsigned int residual_step = 5;	// number of iterations between residual computations
-unsigned int max_iter = 10000;	// don't let the solver stagnate
-double omega = 1.20;			// relaxation parameter for SOR. omega=1 is stock Gauss-Seidel.
+double tolerance = 1.0e-8;      // Choose wisely. 1e-10 is the minimum toloerance for which mass is conserved.
+unsigned int residual_step = 5; // number of iterations between residual computations
+unsigned int max_iter = 10000;  // don't let the solver stagnate
+double omega = 1.2;             // relaxation parameter (default is 1.2): 1 is stock Gauss-Seidel, 1.2 is successive over-relaxation, 0.8 is successive under-relaxation.
 
 
 // Energy equations
@@ -94,22 +94,6 @@ double dfexpansivedc(const T& C, const T& P)
 
 // Discrete Laplacian operator missing the central value, for implicit source terms
 template<int dim, typename T>
-double fringe_laplacian(const MMSP::grid<dim,MMSP::vector<T> >& GRID, const MMSP::vector<int>& x, const int field)
-{
-	double laplacian = 0.0;
-	MMSP::vector<int> s = x;
-
-	for (int i=0; i<dim; i++) {
-		s[i] += 1;
-		const T& yh = GRID(s)[field];
-		s[i] -= 2;
-		const T& yl = GRID(s)[field];
-		s[i] += 1;
-
-		double weight = 1.0 / pow(dx(GRID, i), 2.0);
-		laplacian += weight * (yh + yl);
-	}
-	return laplacian;
-}
+double fringe_laplacian(const MMSP::grid<dim,MMSP::vector<T> >& GRID, const MMSP::vector<int>& x, const int field);
 
 #endif

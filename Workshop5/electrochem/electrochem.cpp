@@ -6,6 +6,7 @@
 #define CAHNHILLIARD_UPDATE
 #include"MMSP.hpp"
 #include<cmath>
+#include<cassert>
 #include"electrochem.hpp"
 #include"energy.hpp"
 
@@ -46,6 +47,56 @@ double Helmholtz(const grid<dim,vector<T> >& GRID)
 	return F;
 }
 
+// Discrete Laplacian operator missing the central value, for implicit source terms
+template<int dim, typename T>
+double fringe_laplacian(const MMSP::grid<dim,MMSP::vector<T> >& GRID, const MMSP::vector<int>& x, const int field)
+{
+	double laplacian = 0.0;
+	MMSP::vector<int> s = x;
+
+	for (int i=0; i<dim; i++) {
+		double weight = 1.0 / pow(dx(GRID, i), 2.0);
+
+		if (x[i] == g0(GRID, i)) { // lower boundary: yh only
+			s[i] += 1;
+			const T& yh = GRID(s)[field];
+			s[i] -= 1;
+			laplacian += weight * yh;
+		} else if (x[i] == g1(GRID, i) - 1) { // upper boundary: yl only
+			s[i] -= 1;
+			const T& yl = GRID(s)[field];
+			s[i] += 1;
+			laplacian += weight * yl;
+		} else {
+			s[i] += 1;
+			const T& yh = GRID(s)[field];
+			s[i] -= 2;
+			const T& yl = GRID(s)[field];
+			s[i] += 1;
+
+			laplacian += weight * (yh + yl);
+		}
+	}
+
+	return laplacian;
+}
+
+template<int dim, typename T>
+double lapWeight(const MMSP::grid<dim,MMSP::vector<T> >& GRID, const MMSP::vector<int>& x)
+{
+	double weight = 0.0;
+
+	for (int i=0; i<dim; i++) {
+		if ((x[i] == g0(GRID, i)) || (x[i] == g1(GRID, i)) ) { // edge
+			weight += 1.0 / std::pow(dx(GRID, i), 2.0);
+		} else { // bulk: dim=2 -> lapWeight = 4/h^2 if dy=dx=h
+			weight += 2.0 / std::pow(dx(GRID, i), 2.0);
+		}
+	}
+
+	return weight;
+}
+
 template<int dim,typename T>
 unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,vector<T> >& newGrid)
 {
@@ -56,11 +107,8 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 	#endif
 
 	double dV = 1.0;
-	double lapWeight = 0.0;
-	for (int d=0; d<dim; d++) {
+	for (int d=0; d<dim; d++)
 		dV *= dx(oldGrid,d);
-		lapWeight += 2.0 / std::pow(dx(oldGrid,d), 2.0); // dim=2 -> lapWeight = 4/h^2 if dy=dx=h
-	}
 
 	double residual = 1.0;
 	unsigned int iter = 0;
@@ -72,18 +120,21 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 		    In 2-D and 3-D, if the sum of indices is even, then the tile is Red; else, Black.
 
 			This method solves the linear system of equations,
-            /  1  a12  0  \ / x1 \   / b1 \
-            | a21  1   0  | | x2 | = | b2 |
+		    /  1  a12  0  \ / x1 \   / b1 \
+		    | a21  1   0  | | x2 | = | b2 |
 			\ a31  0  a33 / \ x3 /   \ b3 /
-
 		*/
 
 		for (int color=1; color>-1; color--) {
 			// If color==1, skip BLACK tiles, which have Σx[d] odd
 			// If color==0, skip RED tiles, which have Σx[d] even
+			#ifdef _OPENMP
 			#pragma omp parallel for schedule(dynamic)
+			#endif
 			for (int n=0; n<nodes(oldGrid); n++) {
 				vector<int> x = position(oldGrid,n);
+
+				double weight = lapWeight(newGrid, x);
 
 				// Determine tile color
 				int x_sum=0;
@@ -92,10 +143,12 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				if (x_sum%2 == color)
 					continue;
 
-				const T& cOld = oldGrid(n)[cid];
-				const T& cGuess = newGrid(n)[cid]; // value from last "guess" iteration
-				const T& uGuess = newGrid(n)[uid];
-				T pGuess = newGrid(n)[pid];
+				const T cOld = oldGrid(n)[cid];
+				const T pOld = oldGrid(n)[pid];
+
+				const T cGuess = newGrid(n)[cid]; // value from last "guess" iteration
+				const T uGuess = newGrid(n)[uid];
+				      T pGuess = newGrid(n)[pid];
 
 				if (x[0] == g1(oldGrid, 0) - 1)
 					pGuess = std::sin(dx(oldGrid, 1)/7.0  * x[1]);
@@ -103,26 +156,53 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 					pGuess = 0.0;
 
 				// A is defined by the last guess, stored in newGrid(n). It is a 3x3 matrix.
-				const double a12 = -lapWeight * dt * M;
+				const double a12 = -weight * dt * M;
 
-				const double a21 = -kappa * lapWeight - dfcontractivedc(cGuess, 1.0);
+				const double a21 = -kappa * weight - dfcontractivedc(cGuess, 1.0);
 
 				const double a31 = k / epsilon;
-				const double a33 = -lapWeight;
+				const double a33 = -weight;
 
 				// B is defined by the last value, stored in oldGrid(n), and the last guess, stored in newGrid(n). It is a 3x1 column.
-				const double b1 = cOld + dt * M * fringe_laplacian(newGrid, x, uid);
-				const double b2 = dfexpansivedc(cGuess, pGuess) - kappa * fringe_laplacian(newGrid, x, cid);
-				const double b3 = -fringe_laplacian(newGrid, x, pid);
+				const double flapC = fringe_laplacian(newGrid, x, cid);
+				const double flapU = fringe_laplacian(newGrid, x, uid);
+				const double flapP = fringe_laplacian(newGrid, x, pid);
+
+				const double b1 = cOld + dt * M * flapU;
+				const double b2 = dfexpansivedc(cOld, pOld) - kappa * flap;
+				const double b3 = -flapP;
+				//assert(std::fabs(b1) > tolerance);
+				//assert(std::fabs(b2) > tolerance);
+				//assert(std::fabs(b3) > tolerance);
 
 				// Solve the iteration system AX=B using Cramer's rule
-				const double detA = a33 - a12*a21*a33;
+				const double detA = a33 * (1.0 - a12*a21);
+				const double detA1 = a33 * (b1 - a12*b2);
+				const double detA2 = a33 * (b2 - b1*a21);
+				const double detA3 = b3 * (1.0 - a12*a21) + a31 * (a12*b2 - b1);
 
-				const double detA1 = b1*a33 - a12*b2*a33;
-				const T cNew = (std::fabs(detA) > tolerance) ? detA1 / detA : 0.0;
+				if (std::fabs(detA) < tolerance || std::fabs(detA) > 1e90) {
+					printf("Node %i (%i, %i):\n", n, x[0], x[1]);
+					printf("lapC = %.2e + %.2e = %.2e = %.2e\n", flapC, weight*newGrid(n)[cid], flapC - weight*newGrid(n)[cid], laplacian(newGrid, x, cid));
+					printf("a12 = %.2e * %.2e * %.2e = %.2e\n", -weight, dt, M, a12);
+					printf("a21 = %.2e * %.2e - fcon(%.2e, 1) = %.2e\n", -kappa, weight, cGuess, a21);
+					printf("a31 = %.2e / %.2e = %.2e\n", k, epsilon, a31);
+					printf("a33 = %.2e\n", a33);
+					printf("b1 = %.2e + %.2e * %.2e * %.2e = %.2e\n", cOld, dt, M, flapU, b1);
+					printf("b2 = fexp(%.2e, %.2e) - %.2e * %.2e = %.2e\n", cOld, dt, M, flapC, b2);
+					printf("b3 = %.2e\n", b3);
+					printf("det(A) = %.2e * (1 - %.2e * %.2e) = %.2e\n", a33, a12, a21, detA);
+					printf("det(A1) = %.2e * (%.2e - %.2e * %.2e) = %.2e\n", a33, b1, a12, b2, detA1);
+					printf("det(A2) = %.2e * (%.2e - %.2e * %.2e) = %.2e\n", a33, b2, b1, a21, detA2);
+					printf("det(A3) = %.2e * (1 - %.2e * %.2e) + %.2e * (%.2e - %.2e * %.2e) = %.2e\n\n", b3, a12, a21, a31, a12, b2, b1, detA3);
+				}
+				assert(std::fabs(detA) > tolerance);
 
-				const double detA2 = b2*a33 - b1*a21*a33;
-				const T uNew = (std::fabs(detA) > tolerance) ? detA2 / detA : 0.0;
+				//assert(std::fabs(detA1) > tolerance);
+				const T cNew = detA1 / detA;
+
+				//assert(std::fabs(detA2) > tolerance);
+				const T uNew = detA2 / detA;
 
 				T pNew = 0.0;
 
@@ -131,8 +211,8 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				else if (x[0] == g0(oldGrid, 0))
 					pNew = 0.0;
 				else {
-					const double detA3 = b3 + a12*b2*a31 - b1*a31 - a12*a21*b3;
-					pNew = (std::fabs(detA) > tolerance) ? detA3 / detA : 0.0;
+					//assert(std::fabs(detA3) > tolerance);
+					pNew = detA3 / detA;
 				}
 
 				// (Don't) Apply relaxation
@@ -156,15 +236,17 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			double normB = 0.0;
 			residual = 0.0;
 
+			#ifdef _OPENMP
 			#pragma omp parallel for schedule(dynamic)
+			#endif
 			for (int n=0; n<nodes(oldGrid); n++) {
 				vector<int> x = position(oldGrid,n);
 				vector<T> lap = laplacian(newGrid, x);
 
-				const T& cOld = oldGrid(n)[cid];
-				const T& cNew = newGrid(n)[cid];
-				const T& uNew = newGrid(n)[uid];
-				const T& pNew = newGrid(n)[pid];
+				const T cOld = oldGrid(n)[cid];
+				const T cNew = newGrid(n)[cid];
+				const T uNew = newGrid(n)[uid];
+				const T pNew = newGrid(n)[pid];
 
 				// Plug iteration results into original system of equations
 				const double Ax1 = cNew;
@@ -181,12 +263,17 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const double r3 = b3 - Ax3;
 
 				const double error = r1*r1 + r2*r2 + r3*r3;
+				const double source = b1*b1 + b2*b2 + b3*b3;
 
-				#pragma omp critical
-				{
-					residual += error;
-					normB += b1*b1 + b2*b2 + b3*b3;
-				}
+				#ifdef _OPENMP
+				#pragma omp atomic
+				#endif
+				residual += error;
+
+				#ifdef _OPENMP
+				#pragma omp atomic
+				#endif
+				normB += source;
 			}
 
 			#ifdef MPI_VERSION
@@ -221,7 +308,8 @@ void generate(int dim, const char* filename)
 		2: electrostatic potential  */
 
 	if (dim==2) {
-		GRID2D initGrid(3,0,100,0,100);
+		const int L = 100;
+		GRID2D initGrid(3, 0,L, 0,L);
 		for (int d=0; d<dim; d++) {
 			// Set grid resolution
 			dx(initGrid,d) = deltaX;
@@ -241,8 +329,10 @@ void generate(int dim, const char* filename)
 			// charge field
 			if (x[0] == g1(initGrid, 0) - 1)
 				initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]);
-			else
+			else if (x[0] == g0(initGrid, 0))
 				initGrid(n)[pid] = 0.0;
+			else
+				initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]) / double(g1(initGrid, 0) - 1 - g0(initGrid, 0)) * double(x[0] - g0(initGrid, 0));
 		}
 
 		ghostswap(initGrid);
@@ -252,15 +342,23 @@ void generate(int dim, const char* filename)
 			vector<int> x = position(initGrid, n);
 			const double& c = initGrid(n)[cid];
 			const double& p = initGrid(n)[pid];
-			initGrid(n)[uid] = dfchemdc(c) + 2.0 * dfelecdc(p) - kappa * laplacian(initGrid, x, cid);
+			const double lapC = laplacian(initGrid, x, cid);
+			initGrid(n)[uid] = dfchemdc(c) + 2.0 * dfelecdc(p) - kappa * lapC;
 		}
 
 		output(initGrid,filename);
 
+		#ifdef DEBUG
 		double F = Helmholtz(initGrid);
 
-		if (rank == 0)
-			std::cout << F << std::endl;
+		std::ofstream of;
+		if (rank == 0) {
+			of.open("iter.log");
+			of << "step\titer\tF\n";
+			of << 0 << '\t' << 0 << '\t' << F << '\n';
+			of.close();
+		}
+		#endif
 	}
 }
 
@@ -277,7 +375,10 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
 
+	ghostswap(oldGrid);
+
 	grid<dim,vector<T> > newGrid(oldGrid);
+	newGrid.copy(oldGrid);
 
 	// Make sure the grid spacing is correct
 	for (int d=0; d<dim; d++) {
@@ -295,11 +396,16 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 		}
 	}
 
+	#ifdef DEBUG
+	std::ofstream of;
+	if (rank == 0)
+		of.open("iter.log", std::ofstream::out | std::ofstream::app); // new results will be appended
+	#endif
+
 	for (int step=0; step<steps; step++) {
 		if (rank==0)
 			print_progress(step, steps);
 
-		ghostswap(oldGrid);
 		ghostswap(newGrid);
 
 		unsigned int iter = RedBlackGaussSeidel(oldGrid, newGrid);
@@ -311,22 +417,31 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 
 		if (iter >= max_iter) {
 			if (rank==0)
-				std::cerr << "Solver stagnated on step " << step << ". Aborting." << std::endl;
-			MMSP::Abort(-1);
+				std::cerr << "Solver stagnated on step " << step /*<< ". Aborting."*/ << std::endl;
+			// MMSP::Abort(-1);
 		}
 
 		swap(oldGrid, newGrid);
+
+		ghostswap(oldGrid);
+
+		#ifdef DEBUG
+		double F = Helmholtz(oldGrid);
+
+		if (rank == 0)
+			of << step << '\t' << iter << '\t' << F << '\n';
+		#endif
 	}
 
-	ghostswap(oldGrid);
-
-	double F = Helmholtz(oldGrid);
-
+	#ifdef DEBUG
 	if (rank == 0)
-		std::cout << F << std::endl;
+		of.close();
+	#endif
+
 }
 
 } // MMSP
+
 #endif
 
 #include"MMSP.main.hpp"
