@@ -26,14 +26,14 @@ const double kappa = 2.0;
 const double M = 5.0;
 
 // Numerical parameters
-const double CFL = 10.;
+const double CFL = 1.0;
 const double deltaX = 1.0;
 const double dt = std::pow(deltaX, 4)*CFL/(24.0*M*kappa);
 
 // Gauss-Seidel parameters
 double tolerance = 1.0e-8;       // Choose wisely. 1e-10 is the minimum toloerance for which mass is conserved.
 unsigned int residual_step = 10; // number of iterations between residual computations
-unsigned int max_iter = 10000;   // don't let the solver stagnate
+unsigned int max_iter = 100000;  // don't let the solver stagnate
 double omega = 1.2;              // relaxation parameter (default is 1.2): 1 is stock Gauss-Seidel, 1.2 is successive over-relaxation, 0.8 is successive under-relaxation.
 
 
