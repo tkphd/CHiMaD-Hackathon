@@ -26,12 +26,12 @@ const double kappa = 2.0;
 const double M = 5.0;
 
 // Numerical parameters
-const double CFL = 1.0;
+const double CFL = 10.0;
 const double deltaX = 1.0;
 const double dt = std::pow(deltaX, 4)*CFL/(24.0*M*kappa);
 
 // Gauss-Seidel parameters
-double tolerance = 1.0e-8;       // Choose wisely. 1e-10 is the minimum toloerance for which mass is conserved.
+double tolerance = 1.0e-14;       // Choose wisely. 1e-10 is the minimum toloerance for which mass is conserved.
 unsigned int residual_step = 10; // number of iterations between residual computations
 unsigned int max_iter = 100000;  // don't let the solver stagnate
 double omega = 1.2;              // relaxation parameter (default is 1.2): 1 is stock Gauss-Seidel, 1.2 is successive over-relaxation, 0.8 is successive under-relaxation.
@@ -41,9 +41,10 @@ double omega = 1.2;              // relaxation parameter (default is 1.2): 1 is 
 double cheminit(const double& x, const double& y)
 {
 	// Equation 12
-	return C0 + C1 * ( std::cos(0.200*x)          * std::cos(0.11*y)
-	                 + std::pow(std::cos(0.13*x)  * std::cos(0.087*y), 2.0)
-	                 + std::cos(0.025*x - 0.15*y) * std::cos(0.07*x - 0.02*y));
+	return C0 + C1 * ( std::cos(0.200 * x) * std::cos(0.110 * y)
+	        + std::pow(std::cos(0.130 * x) * std::cos(0.087 * y), 2.0)
+	                 + std::cos(0.025 * x - 0.150*y)
+	                 * std::cos(0.070 * x - 0.020 * y));
 }
 
 template<typename T>

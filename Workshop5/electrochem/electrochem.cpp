@@ -13,7 +13,8 @@ namespace MMSP {
 
 /*
 	Field 0 is composition.
-	Field 1 is electrostatic potential.
+	Field 1 is chemical potential.
+	Field 2 is electrostatic potential.
 */
 
 template <int dim,typename T>
@@ -89,8 +90,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 		lapWeight += 2.0 / std::pow(dx(oldGrid, d), 2.0);
 	}
 
-	double newResidual = 2.0;
-	double oldResidual = 1.0;
+	double residual = 2.0;
 	unsigned int iter = 0;
 
 	#ifdef DEBUG
@@ -99,7 +99,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 		of.open("iter.log", std::ofstream::out | std::ofstream::app); // new results will be appended
 	#endif
 
-	while (iter < max_iter && std::fabs(newResidual - oldResidual) / oldResidual > tolerance) {
+	while (iter < max_iter && residual > tolerance) {
 		/*  ==== RED-BLACK GAUSS SEIDEL ====
 		    Iterate over a checkerboard, updating first red then black tiles.
 		    This method eliminates the third "guess" grid, and should converge faster.
@@ -124,7 +124,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				int x_sum=0;
 				for (int d=0; d<dim; d++)
 					x_sum += x[d];
-				if (x_sum%2 == color)
+				if (x_sum % 2 == color)
 					continue;
 
 				const T cOld = oldGrid(n)[cid];
@@ -142,7 +142,6 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				// A is defined by the last guess, stored in newGrid(n). It is a 3x3 matrix.
 				const double a12 = lapWeight * dt * M;
 				const double a21 = -kappa * lapWeight - dfcontractivedc(cGuess, 1.0);
-				const double a31 = k / epsilon;
 				const double a33 = -lapWeight;
 
 				// B is defined by the last value, stored in oldGrid(n), and the last guess, stored in newGrid(n). It is a 3x1 column.
@@ -152,32 +151,28 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 
 				const double b1 = cOld + dt * M * flapU;
 				const double b2 = dfexpansivedc(cOld, pOld) - kappa * flapC;
-				const double b3 = -flapP;
+				const double b3 = -k * cOld / epsilon - flapP;
 
 				// Solve the iteration system AX=B using Cramer's rule
 				const double detA  = a33 * (1. - a12 * a21);
 				const double detA1 = a33 * (b1 - a12 * b2 );
 				const double detA2 = a33 * (b2 - b1  * a21);
-				const double detA3 = b3  * (1. - a12 * a21)  // b3  * detA / a33
-				                   - a31 * (b1 - a12 * b2 ); // a31 * detA1 / a33
+				const double detA3 = b3  * (1. - a12 * a21);
+				                // - a31 * (b1 - a12 * b2 );
 
 				const T cNew = detA1 / detA;
 				const T uNew = detA2 / detA;
-
-				T pNew = 0.0;
+				      T pNew = detA3 / detA;
 
 				if (x[0] == g1(oldGrid, 0) - 1)
-					pNew = std::sin(dx(oldGrid, 1)/7.0  * x[1]);
+					pNew = pGuess;
 				else if (x[0] == g0(oldGrid, 0))
 					pNew = 0.0;
-				else {
-					pNew = detA3 / detA;
-				}
 
 				// (Don't) Apply relaxation
-				newGrid(n)[cid] = omega*cNew + (1.0 - omega)*cGuess;
-				newGrid(n)[uid] = omega*uNew + (1.0 - omega)*uGuess;
-				newGrid(n)[pid] = omega*pNew + (1.0 - omega)*pGuess;
+				newGrid(n)[cid] = omega * cNew + (1.0 - omega) * cGuess;
+				newGrid(n)[uid] = omega * uNew + (1.0 - omega) * uGuess;
+				newGrid(n)[pid] = omega * pNew + (1.0 - omega) * pGuess;
 
 			}
 			ghostswap(newGrid);   // fill in the ghost cells; does nothing in serial
@@ -193,8 +188,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 
 		if (iter < residual_step || iter % residual_step == 0) {
 			double normB = 0.0;
-			oldResidual = newResidual;
-			newResidual = 0.0;
+			residual = 0.0;
 
 			#ifdef _OPENMP
 			#pragma omp parallel for schedule(dynamic)
@@ -211,25 +205,25 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 
 				// Plug iteration results into original system of equations
 				const double Ax1 = cNew - dt * M * lap[uid];
-				const double Ax2 = uNew - dfcontractivedc(cNew, cNew) + kappa*lap[cid];
-				const double Ax3 = lap[pid] + k / epsilon * cNew;
+				const double Ax2 = uNew - dfcontractivedc(cNew, cNew) + kappa * lap[cid];
+				const double Ax3 = lap[pid];
 
 				const double b1 = cOld;
 				const double b2 = dfexpansivedc(cOld, pOld);
-				const double b3 = 0.0;
+				const double b3 = -k * cOld / epsilon;
 
 				// Compute the Error from parts of the solution
 				const double r1 = b1 - Ax1;
 				const double r2 = b2 - Ax2;
-				const double r3 = b3 - Ax3;
+				const double r3 = (x[0] == g1(oldGrid, 0) - 1 || x[0] == g0(oldGrid, 0)) ? 0.0 : b3 - Ax3;
 
-				const double error = r1*r1 + r2*r2 + r3*r3;
+				const double error  = r1*r1 + r2*r2 + r3*r3;
 				const double source = b1*b1 + b2*b2 + b3*b3;
 
 				#ifdef _OPENMP
 				#pragma omp atomic
 				#endif
-				newResidual += error;
+				residual += error;
 
 				#ifdef _OPENMP
 				#pragma omp atomic
@@ -238,19 +232,19 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			}
 
 			#ifdef MPI_VERSION
-			double localResidual = newResidual;
-			MPI::COMM_WORLD.Allreduce(&localResidual, &newResidual, 1, MPI_DOUBLE, MPI_SUM);
+			double localResidual = residual;
+			MPI::COMM_WORLD.Allreduce(&localResidual, &residual, 1, MPI_DOUBLE, MPI_SUM);
 			double localNormB = normB;
 			MPI::COMM_WORLD.Allreduce(&localNormB, &normB, 1, MPI_DOUBLE, MPI_SUM);
 			#endif
 
-			newResidual = (std::fabs(normB) > tolerance) ? sqrt(newResidual/normB)/(3.0*gridSize) : 0.0;
+			residual = (std::fabs(normB) > tolerance) ? sqrt(residual/normB)/(3.0*gridSize) : 0.0;
 
 			#ifdef DEBUG
 			double F = Helmholtz(oldGrid);
 
 			if (rank == 0)
-				of << iter << '\t' << newResidual << '\t' << F << '\n';
+				of << iter << '\t' << residual << '\t' << F << '\n';
 			#endif
 		}
 
@@ -303,10 +297,8 @@ void generate(int dim, const char* filename)
 			// charge field
 			if (x[0] == g1(initGrid, 0) - 1)
 				initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]);
-			else if (x[0] == g0(initGrid, 0))
-				initGrid(n)[pid] = 0.0;
 			else
-				initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]) / double(g1(initGrid, 0) - 1 - g0(initGrid, 0)) * double(x[0] - g0(initGrid, 0));
+				initGrid(n)[pid] = 0.0;
 		}
 
 		ghostswap(initGrid);
@@ -317,7 +309,7 @@ void generate(int dim, const char* filename)
 			const double& c = initGrid(n)[cid];
 			const double& p = initGrid(n)[pid];
 			const double lapC = laplacian(initGrid, x, cid);
-			initGrid(n)[uid] = dfchemdc(c) + 2.0 * dfelecdc(p) - kappa * lapC;
+			initGrid(n)[uid] = dfcontractivedc(c, c) + dfexpansivedc(c, p) - kappa * lapC;
 		}
 
 		output(initGrid,filename);
