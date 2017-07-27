@@ -115,7 +115,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			// If color==1, skip BLACK tiles, which have Σx[d] odd
 			// If color==0, skip RED tiles, which have Σx[d] even
 			#ifdef _OPENMP
-			#pragma omp parallel for schedule(dynamic)
+			#pragma omp parallel for
 			#endif
 			for (int n=0; n<nodes(oldGrid); n++) {
 				vector<int> x = position(oldGrid,n);
@@ -191,7 +191,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			residual = 0.0;
 
 			#ifdef _OPENMP
-			#pragma omp parallel for schedule(dynamic)
+			#pragma omp parallel for
 			#endif
 			for (int n=0; n<nodes(oldGrid); n++) {
 				vector<int> x = position(oldGrid,n);
@@ -292,6 +292,9 @@ void generate(int dim, const char* filename)
 		if (rank == 0)
 			std::cout << "Timestep is " << dt << ". Run " << 1.0 / dt << " per unit time." << std::endl;
 
+		#ifdef _OPENMP
+		#pragma omp parallel for
+		#endif
 		for (int n=0; n<nodes(initGrid); n++) {
 			vector<int> x = position(initGrid, n);
 			// composition field
@@ -306,6 +309,9 @@ void generate(int dim, const char* filename)
 
 		ghostswap(initGrid);
 
+		#ifdef _OPENMP
+		#pragma omp parallel for
+		#endif
 		for (int n=0; n<nodes(initGrid); n++) {
 			// chemical potential field
 			vector<int> x = position(initGrid, n);
@@ -376,6 +382,12 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 		}
 	}
 
+	#ifndef DEBUG
+	std::ofstream of;
+	if (rank == 0)
+		of.open("energy.log", std::ofstream::out | std::ofstream::app); // new results will be appended
+	#endif
+
 	for (int step=0; step<steps; step++) {
 		if (rank==0)
 			print_progress(step, steps);
@@ -397,19 +409,18 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 
 		swap(oldGrid, newGrid);
 		ghostswap(oldGrid);
+
+		#ifndef DEBUG
+		elapsed += dt;
+		const double F = Helmholtz(oldGrid);
+		if (rank == 0)
+			of << elapsed << '\t' << F << '\n';
+		#endif
 	}
 
 	#ifndef DEBUG
-	elapsed += dt;
-	const double F = Helmholtz(oldGrid);
-
-	std::ofstream of;
-	if (rank == 0) {
-		of.open("energy.log", std::ofstream::out | std::ofstream::app); // new results will be appended
-		of << "t\tF\n";
-		of << elapsed << '\t' << F << '\n';
+	if (rank == 0)
 		of.close();
-	}
 	#endif
 
 }
