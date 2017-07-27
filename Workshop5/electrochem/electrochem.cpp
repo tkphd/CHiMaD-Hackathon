@@ -100,6 +100,11 @@ double lapWeight(const MMSP::grid<dim,MMSP::vector<T> >& GRID, const MMSP::vecto
 template<int dim,typename T>
 unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,vector<T> >& newGrid)
 {
+	int rank=0;
+	#ifdef MPI_VERSION
+	rank = MPI::COMM_WORLD.Get_rank();
+	#endif
+
 	double gridSize = static_cast<double>(nodes(oldGrid));
 	#ifdef MPI_VERSION
 	double localGridSize = gridSize;
@@ -110,10 +115,17 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 	for (int d=0; d<dim; d++)
 		dV *= dx(oldGrid,d);
 
-	double residual = 1.0;
+	double newResidual = 1.0;
+	double oldResidual = 1.0;
 	unsigned int iter = 0;
 
-	while (iter<max_iter && residual>tolerance) {
+	#ifdef DEBUG
+	std::ofstream of;
+	if (rank == 0)
+		of.open("iter.log", std::ofstream::out | std::ofstream::app); // new results will be appended
+	#endif
+
+	while (iter<max_iter && newResidual>tolerance) {
 		/*  ==== RED-BLACK GAUSS SEIDEL ====
 		    Iterate over a checkerboard, updating first red then black tiles.
 		    This method eliminates the third "guess" grid, and should converge faster.
@@ -156,11 +168,8 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 					pGuess = 0.0;
 
 				// A is defined by the last guess, stored in newGrid(n). It is a 3x3 matrix.
-				const double a12 = -weight * dt * M;
-
+				const double a12 = weight * dt * M;
 				const double a21 = -kappa * weight - dfcontractivedc(cGuess, 1.0);
-
-				const double a31 = k / epsilon;
 				const double a33 = -weight;
 
 				// B is defined by the last value, stored in oldGrid(n), and the last guess, stored in newGrid(n). It is a 3x1 column.
@@ -169,18 +178,19 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const double flapP = fringe_laplacian(newGrid, x, pid);
 
 				const double b1 = cOld + dt * M * flapU;
-				const double b2 = dfexpansivedc(cOld, pOld) - kappa * flap;
-				const double b3 = -flapP;
+				const double b2 = dfexpansivedc(cOld, pOld) - kappa * flapC;
+				const double b3 = -k / epsilon * cOld - flapP;
 				//assert(std::fabs(b1) > tolerance);
 				//assert(std::fabs(b2) > tolerance);
 				//assert(std::fabs(b3) > tolerance);
 
 				// Solve the iteration system AX=B using Cramer's rule
-				const double detA = a33 * (1.0 - a12*a21);
-				const double detA1 = a33 * (b1 - a12*b2);
-				const double detA2 = a33 * (b2 - b1*a21);
-				const double detA3 = b3 * (1.0 - a12*a21) + a31 * (a12*b2 - b1);
+				const double detA  = a33 * (1. - a12 * a21);
+				const double detA1 = a33 * (b1 - a12 * b2);
+				const double detA2 = a33 * (b2 - b1  * a21);
+				const double detA3 = b3  * (1. - a12 * a21);
 
+				/*
 				if (std::fabs(detA) < tolerance || std::fabs(detA) > 1e90) {
 					printf("Node %i (%i, %i):\n", n, x[0], x[1]);
 					printf("lapC = %.2e + %.2e = %.2e = %.2e\n", flapC, weight*newGrid(n)[cid], flapC - weight*newGrid(n)[cid], laplacian(newGrid, x, cid));
@@ -196,6 +206,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 					printf("det(A2) = %.2e * (%.2e - %.2e * %.2e) = %.2e\n", a33, b2, b1, a21, detA2);
 					printf("det(A3) = %.2e * (1 - %.2e * %.2e) + %.2e * (%.2e - %.2e * %.2e) = %.2e\n\n", b3, a12, a21, a31, a12, b2, b1, detA3);
 				}
+				*/
 				assert(std::fabs(detA) > tolerance);
 
 				//assert(std::fabs(detA1) > tolerance);
@@ -232,9 +243,9 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 		    this is not the iteration matrix, it is the original system of equations.
 		*/
 
-		if (iter<residual_step || iter%residual_step==0) {
+		if (iter < residual_step || iter % residual_step == 0) {
 			double normB = 0.0;
-			residual = 0.0;
+			newResidual = 0.0;
 
 			#ifdef _OPENMP
 			#pragma omp parallel for schedule(dynamic)
@@ -244,18 +255,20 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				vector<T> lap = laplacian(newGrid, x);
 
 				const T cOld = oldGrid(n)[cid];
+				const T pOld = oldGrid(n)[pid];
+
 				const T cNew = newGrid(n)[cid];
 				const T uNew = newGrid(n)[uid];
-				const T pNew = newGrid(n)[pid];
+				//const T pNew = newGrid(n)[pid];
 
 				// Plug iteration results into original system of equations
-				const double Ax1 = cNew;
-				const double Ax2 = uNew;
+				const double Ax1 = cNew - dt * M * lap[uid];
+				const double Ax2 = uNew - dfcontractivedc(cNew, cNew) + kappa*lap[cid];
 				const double Ax3 = lap[pid];
 
-				const double b1 = cOld + dt * M * lap[uid];
-				const double b2 = dfchemdc(cNew) + 2.0*dfelecdc(pNew) - kappa*lap[cid];
-				const double b3 = -k / epsilon * cNew;
+				const double b1 = cOld;
+				const double b2 = dfexpansivedc(cOld, pOld);
+				const double b3 = -k / epsilon * cOld;
 
 				// Compute the Error from parts of the solution
 				const double r1 = b1 - Ax1;
@@ -268,7 +281,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				#ifdef _OPENMP
 				#pragma omp atomic
 				#endif
-				residual += error;
+				newResidual += error;
 
 				#ifdef _OPENMP
 				#pragma omp atomic
@@ -277,15 +290,33 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			}
 
 			#ifdef MPI_VERSION
-			double localResidual=residual;
-			MPI::COMM_WORLD.Allreduce(&localResidual, &residual, 1, MPI_DOUBLE, MPI_SUM);
-			double localNormB=normB;
+			double localResidual = newResidual;
+			MPI::COMM_WORLD.Allreduce(&localResidual, &newResidual, 1, MPI_DOUBLE, MPI_SUM);
+			double localNormB = normB;
 			MPI::COMM_WORLD.Allreduce(&localNormB, &normB, 1, MPI_DOUBLE, MPI_SUM);
 			#endif
 
-			residual = (std::fabs(normB) > tolerance)? sqrt(residual/normB)/(3.0*gridSize) : 0.0;
+			newResidual = (std::fabs(normB) > tolerance) ? sqrt(newResidual/normB)/(3.0*gridSize) : 0.0;
+
+			#ifdef DEBUG
+			double F = Helmholtz(oldGrid);
+
+			if (rank == 0)
+				of << iter << '\t' << newResidual << '\t' << F << '\n';
+			#endif
+
+			if ( std::fabs(newResidual - oldResidual) / oldResidual < 1.0e-8 )
+				iter = max_iter;
+
+			oldResidual = newResidual;
 		}
+
 	}
+
+	#ifdef DEBUG
+	if (rank == 0)
+		of.close();
+	#endif
 
 	return iter;
 }
@@ -354,7 +385,7 @@ void generate(int dim, const char* filename)
 		std::ofstream of;
 		if (rank == 0) {
 			of.open("iter.log");
-			of << "step\titer\tF\n";
+			of << "iter\tres\tF\n";
 			of << 0 << '\t' << 0 << '\t' << F << '\n';
 			of.close();
 		}
@@ -396,12 +427,6 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 		}
 	}
 
-	#ifdef DEBUG
-	std::ofstream of;
-	if (rank == 0)
-		of.open("iter.log", std::ofstream::out | std::ofstream::app); // new results will be appended
-	#endif
-
 	for (int step=0; step<steps; step++) {
 		if (rank==0)
 			print_progress(step, steps);
@@ -425,18 +450,7 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 
 		ghostswap(oldGrid);
 
-		#ifdef DEBUG
-		double F = Helmholtz(oldGrid);
-
-		if (rank == 0)
-			of << step << '\t' << iter << '\t' << F << '\n';
-		#endif
 	}
-
-	#ifdef DEBUG
-	if (rank == 0)
-		of.close();
-	#endif
 
 }
 
