@@ -35,7 +35,7 @@ then
 	mmsp2png --field=0 ../square/electrochem.008000.dat square.400.png
 fi
 
-if [[ -f ../square/electrochem.010000.dat ]]
+if [[ -f ../square/electrochem.020000.dat ]]
 then
-	mmsp2png --field=0 ../square/electrochem.010000.dat square.500.png
+	mmsp2png --field=0 ../square/electrochem.020000.dat square.1000.png
 fi
