@@ -18,9 +18,18 @@ namespace MMSP {
 */
 
 // Numerical parameters
-const double deltaX = 0.5;
+const double deltaX = 1.0;
 const double dt = 0.05;
 const double CFL = (24.0*M*kappa) / std::pow(deltaX, 4);
+
+// Quirky boundary functions
+
+bool isOutside(const MMSP::vector<int>& x)
+{
+	if ((x[0]>49) && std::sqrt(std::pow(x[0]-50, 2) + std::pow(x[1]-50, 2)) > 50.0)
+		return true;
+	return false;
+}
 
 template <int dim,typename T>
 double Helmholtz(const grid<dim,vector<T> >& GRID)
@@ -35,6 +44,8 @@ double Helmholtz(const grid<dim,vector<T> >& GRID)
 
 	for (int n=0; n<nodes(GRID); n++) {
 		vector<int> x = position(GRID, n);
+		if (isOutside(x))
+			continue;
 		vector<double> gradc = gradient(GRID, x, cid);
 
 		fchem += chemenergy(GRID(n)[cid]);
@@ -52,20 +63,62 @@ double Helmholtz(const grid<dim,vector<T> >& GRID)
 	return F;
 }
 
+// custom Laplacian functions for boundary points
+template <int dim, typename T>
+vector<T> steleLaplacian(const grid<dim,vector<T> >& GRID, const vector<int>& x)
+{
+  vector<T> laplacian(fields(GRID), 0.0);
+  MMSP::vector<int> s = x;
+  const vector<T>& y = GRID(x);
+
+  for (int i=0; i<dim; i++) {
+	s[i] += 1;
+	const vector<T>& yh = (isOutside(s)) ? y : GRID(s);
+	s[i] -= 2;
+	const vector<T>& yl = (isOutside(s)) ? y : GRID(s);
+	s[i] += 1;
+
+	double weight = 1.0 / (dx(GRID, i) * dx(GRID, i));
+	laplacian += weight * (yh - 2.0 * y + yl);
+  }
+  return laplacian;
+}
+
+template <int dim, typename T>
+T steleLaplacian(const grid<dim,vector<T> >& GRID, const vector<int>& x, int field)
+{
+  T laplacian = 0.0;
+  MMSP::vector<int> s = x;
+  const T& y = GRID(x)[field];
+
+  for (int i=0; i<dim; i++) {
+	s[i] += 1;
+	const T& yh = (isOutside(s)) ? y : GRID(s)[field];
+	s[i] -= 2;
+	const T& yl = (isOutside(s)) ? y : GRID(s)[field];
+	s[i] += 1;
+
+	double weight = 1.0 / (dx(GRID, i) * dx(GRID, i));
+	laplacian += weight * (yh - 2.0 * y + yl);
+  }
+  return laplacian;
+}
+
 // Discrete Laplacian operator missing the central value, for implicit source terms
 template<int dim, typename T>
 double fringe_laplacian(const MMSP::grid<dim,MMSP::vector<T> >& GRID, const MMSP::vector<int>& x, const int field)
 {
 	double laplacian = 0.0;
 	MMSP::vector<int> s = x;
+	const T& y = GRID(x)[field];
 
 	for (int i=0; i<dim; i++) {
 		double weight = 1.0 / pow(dx(GRID, i), 2.0);
 
 		s[i] += 1;
-		const T& yh = GRID(s)[field];
+		const T& yh = (isOutside(s)) ? y : GRID(s)[field];
 		s[i] -= 2;
-		const T& yl = GRID(s)[field];
+		const T& yl = (isOutside(s)) ? y : GRID(s)[field];
 		s[i] += 1;
 
 		laplacian += weight * (yh + yl);
@@ -124,6 +177,8 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			#endif
 			for (int n=0; n<nodes(oldGrid); n++) {
 				vector<int> x = position(oldGrid,n);
+				if (isOutside(x))
+					continue;
 
 				// Determine tile color
 				int x_sum=0;
@@ -200,7 +255,10 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			#endif
 			for (int n=0; n<nodes(oldGrid); n++) {
 				vector<int> x = position(oldGrid,n);
-				vector<T> lap = laplacian(newGrid, x);
+				if (isOutside(x))
+					continue;
+
+				vector<T> lap = steleLaplacian(newGrid, x);
 
 				const T cOld = oldGrid(n)[cid];
 				const T pOld = oldGrid(n)[pid];
@@ -297,19 +355,25 @@ void generate(int dim, const char* filename)
 		if (rank == 0)
 			std::cout << "Timestep is " << dt << ". CFL is " << CFL << ". Run " << 1.0 / dt << " per unit time." << std::endl;
 
+		const vector<double> blank(fields(initGrid), 0.0);
+
 		#ifdef _OPENMP
 		#pragma omp parallel for
 		#endif
 		for (int n=0; n<nodes(initGrid); n++) {
 			vector<int> x = position(initGrid, n);
-			// composition field
-			initGrid(n)[cid] = cheminit(dx(initGrid,0) * x[0], dx(initGrid,1) * x[1]);
+			if (isOutside(x))
+				initGrid(n) = blank;
+			else {
+				// composition field
+				initGrid(n)[cid] = cheminit(dx(initGrid,0) * x[0], dx(initGrid,1) * x[1]);
 
-			// charge field
-			if (x[0] == g1(initGrid, 0) - 1)
-				initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]);
-			else
-				initGrid(n)[pid] = 0.0;
+				// charge field
+				if (x[0] == g1(initGrid, 0) - 1)
+					initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]);
+				else
+					initGrid(n)[pid] = 0.0;
+			}
 		}
 
 		ghostswap(initGrid);
@@ -320,9 +384,11 @@ void generate(int dim, const char* filename)
 		for (int n=0; n<nodes(initGrid); n++) {
 			// chemical potential field
 			vector<int> x = position(initGrid, n);
+			if (isOutside(x))
+				continue;
 			const double& c = initGrid(n)[cid];
 			const double& p = initGrid(n)[pid];
-			const double lapC = laplacian(initGrid, x, cid);
+			const double lapC = steleLaplacian(initGrid, x, cid);
 			initGrid(n)[uid] = dfcontractivedc(c, c) + dfexpansivedc(c, p) - kappa * lapC;
 		}
 
