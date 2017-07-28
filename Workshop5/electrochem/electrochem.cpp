@@ -18,7 +18,7 @@ namespace MMSP {
 */
 
 // Numerical parameters
-const double deltaX = 0.5;
+const double deltaX = 0.1;
 const double dt = 0.05;
 const double CFL = (24.0*M*kappa) / std::pow(deltaX, 4);
 
@@ -408,8 +408,8 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 
 		if (iter >= max_iter) {
 			if (rank==0)
-				std::cerr << "Solver stagnated on step " << step /*<< ". Aborting."*/ << std::endl;
-			// MMSP::Abort(-1);
+				std::cerr << "Solver stagnated on step " << step << ". Aborting." << std::endl;
+				MMSP::Abort(-1);
 		}
 
 		swap(oldGrid, newGrid);
