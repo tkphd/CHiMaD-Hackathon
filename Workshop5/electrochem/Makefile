@@ -22,5 +22,9 @@ ichem: electrochem.cpp electrochem.hpp energy.hpp
 parallel: electrochem.cpp electrochem.hpp energy.hpp
 	$(pcompiler) $(pflags) $< -o $@ $(links)
 
+# utilities
+linescan: linescan.cpp
+	$(compiler) -O2 -Wall -pedantic -std=c++11 -I $(incdir) $< -o $@ -lz
+
 clean:
-	rm -f electrochem parallel
+	rm -f electrochem ichem linescan parallel

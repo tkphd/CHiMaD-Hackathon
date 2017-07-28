@@ -7,12 +7,9 @@ img
 *.log
 *.directory
 .ipynb_checkpoints
-Hackathon1/Cahn-Hilliard/linescan
-Hackathon1/Cahn-Hilliard/mmsp2png
-Hackathon1/Cahn-Hilliard/1a_Periodic/mmsp2png
-Hackathon1/Ostwald_ripening/linescan
-Hackathon1/Ostwald_ripening/mmsp2png
 lin
+linescan
+mmsp2png
 *.nav
 *.out
 parallel

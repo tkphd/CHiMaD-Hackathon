@@ -26,9 +26,9 @@ const double kappa = 2.0;
 const double M = 5.0;
 
 // Numerical parameters
-const double CFL = 12.0;
-const double deltaX = 1.0;
-const double dt = std::pow(deltaX, 4)*CFL/(24.0*M*kappa);
+const double deltaX = 0.5;
+const double dt = 0.05;
+const double CFL = (24.0*M*kappa) / std::pow(deltaX, 4);
 
 // Gauss-Seidel parameters
 double tolerance = 1.0e-12;      // Choose wisely. 1e-10 is the minimum tolerance for which mass is conserved.

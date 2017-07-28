@@ -276,7 +276,7 @@ void generate(int dim, const char* filename)
 		2: electrostatic potential  */
 
 	if (dim==2) {
-		const int L = 100;
+		const int L = 100 / deltaX;
 		GRID2D initGrid(3, 0,L, 0,L);
 		for (int d=0; d<dim; d++) {
 			// Set grid resolution
@@ -290,7 +290,7 @@ void generate(int dim, const char* filename)
 		}
 
 		if (rank == 0)
-			std::cout << "Timestep is " << dt << ". Run " << 1.0 / dt << " per unit time." << std::endl;
+			std::cout << "Timestep is " << dt << ". CFL is " << CFL << ". Run " << 1.0 / dt << " per unit time." << std::endl;
 
 		#ifdef _OPENMP
 		#pragma omp parallel for
@@ -335,7 +335,7 @@ void generate(int dim, const char* filename)
 		}
 		#else
 		if (rank == 0) {
-			of.open("energy.log");
+			of.open("energy_dx05.tsv");
 			of << "t\tF\n";
 			of << 0 << '\t' << F << '\n';
 			of.close();
@@ -385,7 +385,7 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 	#ifndef DEBUG
 	std::ofstream of;
 	if (rank == 0)
-		of.open("energy.log", std::ofstream::out | std::ofstream::app); // new results will be appended
+		of.open("energy_dx05.tsv", std::ofstream::out | std::ofstream::app); // new results will be appended
 	#endif
 
 	for (int step=0; step<steps; step++) {
