@@ -21,6 +21,7 @@ namespace MMSP {
 const double deltaX = 1.0;
 const double dt = 0.05;
 const double CFL = (24.0*M*kappa) / std::pow(deltaX, 4);
+const double dr = 0.0001;
 
 // Quirky boundary functions
 
@@ -29,12 +30,12 @@ int g1(const grid<dim,T>& GRID, int axis, vector<int> x)
 {
 	const double R = 50.0;
 	if (axis == 0) {
-		const int r = R / dx(GRID);
-		const int c = x[1] - r;
+		const double r = R / dy(GRID);
+		const double c = x[1] - r + dr;
 		return std::ceil(r + std::sqrt(r*r - c*c));
 	} else if (axis == 1) {
-		const int r = R / dy(GRID);
-		const int h = x[0] - r;
+		const double r = R / dx(GRID);
+		const double h = x[0] - r + dr;
 		return std::ceil(r + std::sqrt(r*r - h*h));
 	} else {
 		return g1(GRID, axis);
@@ -46,9 +47,9 @@ int g0(const grid<dim,T>& GRID, int axis, vector<int> x)
 {
 	const double R = 50.0;
 	if (axis == 1) {
-		const int r = R / dy(GRID);
-		const int h = x[0] - r;
-		return std::floor(r - std::sqrt(r*r - h*h));
+		const double r = R / dx(GRID);
+		const double h = x[0] - r + dr;
+		return std::ceil(r - std::sqrt(r*r - h*h));
 	} else {
 		return g0(GRID, axis);
 	}
@@ -56,7 +57,7 @@ int g0(const grid<dim,T>& GRID, int axis, vector<int> x)
 
 bool isOutside(const MMSP::vector<int>& x)
 {
-	if ((x[0]>49) && std::sqrt(std::pow(x[0]-50, 2) + std::pow(x[1]-50, 2)) > 50.0)
+	if ((deltaX*x[0] > 50.0-dr) && std::sqrt(std::pow(deltaX*x[0] - 50.0, 2) + std::pow(deltaX*x[1] - 50.0, 2)) > 50.0+dr)
 		return true;
 	return false;
 }
@@ -224,7 +225,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const T uGuess = newGrid(n)[uid];
 				      T pGuess = newGrid(n)[pid];
 
-				if (x[0] == g1(oldGrid, 0, x) - 1)
+				if (x[0] == g1(oldGrid, 0, x) - 1 || (x[0] >= g1(oldGrid,0)/2 && (x[1] == g1(oldGrid, 1, x) - 1 || x[1] == g0(oldGrid, 1, x))))
 					pGuess = std::sin(dx(oldGrid, 1)/7.0  * x[1]);
 				else if (x[0] == g0(oldGrid, 0, x))
 					pGuess = 0.0;
@@ -399,7 +400,7 @@ void generate(int dim, const char* filename)
 				initGrid(n)[cid] = cheminit(dx(initGrid,0) * x[0], dx(initGrid,1) * x[1]);
 
 				// charge field
-				if (x[0] == g1(initGrid, 0, x) - 1)
+				if (x[0] == g1(initGrid, 0, x) - 1 || (x[0] >= g1(initGrid,0)/2 && (x[1] == g1(initGrid, 1, x) - 1 || x[1] == g0(initGrid, 1, x))))
 					initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]);
 				else
 					initGrid(n)[pid] = 0.0;
@@ -436,7 +437,7 @@ void generate(int dim, const char* filename)
 		}
 		#else
 		if (rank == 0) {
-			of.open("energy_dx05.tsv");
+			of.open("energy_dx10.tsv");
 			of << "t\tF\n";
 			of << 0 << '\t' << F << '\n';
 			of.close();
@@ -486,7 +487,7 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 	#ifndef DEBUG
 	std::ofstream of;
 	if (rank == 0)
-		of.open("energy_dx05.tsv", std::ofstream::out | std::ofstream::app); // new results will be appended
+		of.open("energy_dx10.tsv", std::ofstream::out | std::ofstream::app); // new results will be appended
 	#endif
 
 	for (int step=0; step<steps; step++) {
