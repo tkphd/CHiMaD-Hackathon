@@ -225,9 +225,12 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const T uGuess = newGrid(n)[uid];
 				      T pGuess = newGrid(n)[pid];
 
-				if (x[0] == g1(oldGrid, 0, x) - 1 || (x[0] >= g1(oldGrid,0)/2 && (x[1] == g1(oldGrid, 1, x) - 1 || x[1] == g0(oldGrid, 1, x))))
+				const bool pointOnCurvedBoundary = (x[0] == g1(oldGrid, 0, x) - 1 || (x[0] >= g1(oldGrid,0)/2 && (x[1] == g1(oldGrid, 1, x) - 1 || x[1] == g0(oldGrid, 1, x))));
+				const bool pointOnFlatBoundary = (x[0] == g0(oldGrid, 0, x));
+
+				if (pointOnCurvedBoundary)
 					pGuess = std::sin(dx(oldGrid, 1)/7.0  * x[1]);
-				else if (x[0] == g0(oldGrid, 0, x))
+				else if (pointOnFlatBoundary)
 					pGuess = 0.0;
 
 				// A is defined by the last guess, stored in newGrid(n). It is a 3x3 matrix.
@@ -255,9 +258,9 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const T uNew = detA2 / detA;
 				      T pNew = detA3 / detA;
 
-				if (x[0] == g1(oldGrid, 0, x) - 1)
+				if (pointOnCurvedBoundary)
 					pNew = pGuess;
-				else if (x[0] == g0(oldGrid, 0, x))
+				else if (pointOnFlatBoundary)
 					pNew = 0.0;
 
 				// (Don't) Apply relaxation

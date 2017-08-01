@@ -30,7 +30,7 @@ plt.close()
 # Plot linescan data
 
 plt.figure(2)
-fnames = sorted(glob.glob("../square/electrochem_dx10.*.csv"))
+fnames = sorted(glob.glob("../stele/electrochem_dx10.*.csv"))
 if len(fnames) > 0:
     n = 0
     for file in fnames:
@@ -46,7 +46,7 @@ if len(fnames) > 0:
     plt.close()
 
 plt.figure(3)
-fnames = sorted(glob.glob("../square/electrochem_dx05.*.csv"))
+fnames = sorted(glob.glob("../stele/electrochem_dx05.*.csv"))
 if len(fnames) > 0:
     n = 0
     for file in fnames:
@@ -62,7 +62,7 @@ if len(fnames) > 0:
     plt.close()
 
 plt.figure(4)
-fnames = sorted(glob.glob("../square/electrochem_dx02.*.csv"))
+fnames = sorted(glob.glob("../stele/electrochem_dx02.*.csv"))
 if len(fnames) > 0:
     n = 0
     for file in fnames:

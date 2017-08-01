@@ -18,7 +18,7 @@ namespace MMSP {
 */
 
 // Numerical parameters
-const double deltaX = 0.1;
+const double deltaX = 0.2;
 const double dt = 0.05;
 const double CFL = (24.0*M*kappa) / std::pow(deltaX, 4);
 
@@ -139,9 +139,12 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const T uGuess = newGrid(n)[uid];
 				      T pGuess = newGrid(n)[pid];
 
-				if (x[0] == g1(oldGrid, 0) - 1)
+				const bool pointOnRightBoundary = (x[0] == g1(oldGrid, 0) - 1);
+				const bool pointOnLeftBoundary = (x[0] == g0(oldGrid, 0));
+
+				if (pointOnRightBoundary)
 					pGuess = std::sin(dx(oldGrid, 1)/7.0  * x[1]);
-				else if (x[0] == g0(oldGrid, 0))
+				else if (pointOnLeftBoundary)
 					pGuess = 0.0;
 
 				// A is defined by the last guess, stored in newGrid(n). It is a 3x3 matrix.
@@ -169,9 +172,9 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const T uNew = detA2 / detA;
 				      T pNew = detA3 / detA;
 
-				if (x[0] == g1(oldGrid, 0) - 1)
+				if (pointOnRightBoundary)
 					pNew = pGuess;
-				else if (x[0] == g0(oldGrid, 0))
+				else if (pointOnLeftBoundary)
 					pNew = 0.0;
 
 				// (Don't) Apply relaxation
@@ -340,7 +343,7 @@ void generate(int dim, const char* filename)
 		}
 		#else
 		if (rank == 0) {
-			of.open("energy_dx05.tsv");
+			of.open("energy_dx02.tsv");
 			of << "t\tF\n";
 			of << 0 << '\t' << F << '\n';
 			of.close();
@@ -390,7 +393,7 @@ void update(grid<dim,vector<T> >& oldGrid, int steps)
 	#ifndef DEBUG
 	std::ofstream of;
 	if (rank == 0)
-		of.open("energy_dx05.tsv", std::ofstream::out | std::ofstream::app); // new results will be appended
+		of.open("energy_dx02.tsv", std::ofstream::out | std::ofstream::app); // new results will be appended
 	#endif
 
 	for (int step=0; step<steps; step++) {
