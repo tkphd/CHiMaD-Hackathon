@@ -75,6 +75,18 @@ double fringe_laplacian(const MMSP::grid<dim,MMSP::vector<T> >& GRID, const MMSP
 }
 
 template<int dim,typename T>
+bool pointIsOnRightBoundary(const MMSP::grid<dim,T> GRID, const MMSP::vector<int>& x)
+{
+	return (x[0] == g1(GRID, 0) - 1);
+}
+
+template<int dim,typename T>
+bool pointIsOnLeftBoundary(const MMSP::grid<dim,T>& GRID, const MMSP::vector<int>& x)
+{
+	return (x[0] == g0(GRID, 0));
+}
+
+template<int dim,typename T>
 unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,vector<T> >& newGrid)
 {
 	#ifdef DEBUG
@@ -139,12 +151,9 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const T uGuess = newGrid(n)[uid];
 				      T pGuess = newGrid(n)[pid];
 
-				const bool pointOnRightBoundary = (x[0] == g1(oldGrid, 0) - 1);
-				const bool pointOnLeftBoundary = (x[0] == g0(oldGrid, 0));
-
-				if (pointOnRightBoundary)
+				if (pointIsOnRightBoundary(oldGrid, x))
 					pGuess = std::sin(dx(oldGrid, 1)/7.0  * x[1]);
-				else if (pointOnLeftBoundary)
+				else if (pointIsOnLeftBoundary(oldGrid, x))
 					pGuess = 0.0;
 
 				// A is defined by the last guess, stored in newGrid(n). It is a 3x3 matrix.
@@ -172,9 +181,9 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const T uNew = detA2 / detA;
 				      T pNew = detA3 / detA;
 
-				if (pointOnRightBoundary)
+				if (pointIsOnRightBoundary(newGrid, x))
 					pNew = pGuess;
-				else if (pointOnLeftBoundary)
+				else if (pointIsOnLeftBoundary(newGrid, x))
 					pNew = 0.0;
 
 				// (Don't) Apply relaxation
@@ -201,8 +210,8 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			#ifdef _OPENMP
 			#pragma omp parallel for
 			#endif
-			for (int n=0; n<nodes(oldGrid); n++) {
-				vector<int> x = position(oldGrid,n);
+			for (int n=0; n<nodes(newGrid); n++) {
+				vector<int> x = position(newGrid,n);
 				vector<T> lap = laplacian(newGrid, x);
 
 				const T cOld = oldGrid(n)[cid];
@@ -223,7 +232,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				// Compute the Error from parts of the solution
 				const double r1 = b1 - Ax1;
 				const double r2 = b2 - Ax2;
-				const double r3 = (x[0] == g1(oldGrid, 0) - 1 || x[0] == g0(oldGrid, 0)) ? 0.0 : b3 - Ax3;
+				const double r3 = (pointIsOnLeftBoundary(newGrid, x) || pointIsOnRightBoundary(newGrid, x)) ? 0.0 : b3 - Ax3;
 
 				const double error  = r1*r1 + r2*r2 + r3*r3;
 				const double source = b1*b1 + b2*b2 + b3*b3;
@@ -309,7 +318,7 @@ void generate(int dim, const char* filename)
 			initGrid(n)[cid] = cheminit(dx(initGrid,0) * x[0], dx(initGrid,1) * x[1]);
 
 			// charge field
-			if (x[0] == g1(initGrid, 0) - 1)
+			if (pointIsOnRightBoundary(initGrid, x))
 				initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]);
 			else
 				initGrid(n)[pid] = 0.0;

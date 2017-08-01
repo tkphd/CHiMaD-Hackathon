@@ -63,6 +63,19 @@ bool isOutside(const MMSP::vector<int>& x)
 }
 
 template <int dim,typename T>
+bool pointIsOnCurvedBoundary(const grid<dim,T>& GRID, const vector<int>& x)
+{
+	return (x[0] == g1(GRID, 0, x) - 1 || (x[0] >= g1(GRID,0)/2 && (x[1] == g1(GRID, 1, x) - 1 || x[1] == g0(GRID, 1, x))));
+}
+
+template <int dim,typename T>
+bool pointIsOnFlatBoundary(const grid<dim,T>& GRID, const vector<int>& x)
+{
+	return (x[0] == g0(GRID, 0, x));
+}
+
+
+template <int dim,typename T>
 double Helmholtz(const grid<dim,vector<T> >& GRID)
 {
 	double dV = 1.0;
@@ -110,7 +123,7 @@ vector<T> steleLaplacian(const grid<dim,vector<T> >& GRID, const vector<int>& x)
 	s[i] += 1;
 
 	double weight = 1.0 / (dx(GRID, i) * dx(GRID, i));
-	laplacian += weight * (yh - 2.0 * y + yl);
+	laplacian += weight * (yh + yl - 2.0 * y);
   }
   return laplacian;
 }
@@ -130,7 +143,7 @@ T steleLaplacian(const grid<dim,vector<T> >& GRID, const vector<int>& x, int fie
 	s[i] += 1;
 
 	double weight = 1.0 / (dx(GRID, i) * dx(GRID, i));
-	laplacian += weight * (yh - 2.0 * y + yl);
+	laplacian += weight * (yh + yl - 2.0 * y);
   }
   return laplacian;
 }
@@ -225,12 +238,9 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const T uGuess = newGrid(n)[uid];
 				      T pGuess = newGrid(n)[pid];
 
-				const bool pointOnCurvedBoundary = (x[0] == g1(oldGrid, 0, x) - 1 || (x[0] >= g1(oldGrid,0)/2 && (x[1] == g1(oldGrid, 1, x) - 1 || x[1] == g0(oldGrid, 1, x))));
-				const bool pointOnFlatBoundary = (x[0] == g0(oldGrid, 0, x));
-
-				if (pointOnCurvedBoundary)
+				if (pointIsOnCurvedBoundary(oldGrid, x))
 					pGuess = std::sin(dx(oldGrid, 1)/7.0  * x[1]);
-				else if (pointOnFlatBoundary)
+				else if (pointIsOnFlatBoundary(oldGrid, x))
 					pGuess = 0.0;
 
 				// A is defined by the last guess, stored in newGrid(n). It is a 3x3 matrix.
@@ -258,9 +268,9 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				const T uNew = detA2 / detA;
 				      T pNew = detA3 / detA;
 
-				if (pointOnCurvedBoundary)
+				if (pointIsOnCurvedBoundary(oldGrid, x))
 					pNew = pGuess;
-				else if (pointOnFlatBoundary)
+				else if (pointIsOnFlatBoundary(oldGrid, x))
 					pNew = 0.0;
 
 				// (Don't) Apply relaxation
@@ -287,8 +297,8 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 			#ifdef _OPENMP
 			#pragma omp parallel for
 			#endif
-			for (int n=0; n<nodes(oldGrid); n++) {
-				vector<int> x = position(oldGrid,n);
+			for (int n=0; n<nodes(newGrid); n++) {
+				vector<int> x = position(newGrid,n);
 				if (isOutside(x))
 					continue;
 
@@ -312,7 +322,7 @@ unsigned int RedBlackGaussSeidel(const grid<dim,vector<T> >& oldGrid, grid<dim,v
 				// Compute the Error from parts of the solution
 				const double r1 = b1 - Ax1;
 				const double r2 = b2 - Ax2;
-				const double r3 = (x[0] == g1(oldGrid, 0, x) - 1 || x[0] == g0(oldGrid, 0, x)) ? 0.0 : b3 - Ax3;
+				const double r3 = (pointIsOnCurvedBoundary(newGrid, x) || pointIsOnFlatBoundary(newGrid, x)) ? 0.0 : b3 - Ax3;
 
 				const double error  = r1*r1 + r2*r2 + r3*r3;
 				const double source = b1*b1 + b2*b2 + b3*b3;
@@ -403,7 +413,7 @@ void generate(int dim, const char* filename)
 				initGrid(n)[cid] = cheminit(dx(initGrid,0) * x[0], dx(initGrid,1) * x[1]);
 
 				// charge field
-				if (x[0] == g1(initGrid, 0, x) - 1 || (x[0] >= g1(initGrid,0)/2 && (x[1] == g1(initGrid, 1, x) - 1 || x[1] == g0(initGrid, 1, x))))
+				if (pointIsOnCurvedBoundary(initGrid, x))
 					initGrid(n)[pid] = std::sin(dx(initGrid, 1)/7.0  * x[1]);
 				else
 					initGrid(n)[pid] = 0.0;
